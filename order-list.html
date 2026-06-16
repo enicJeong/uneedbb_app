@@ -170,7 +170,7 @@ function renderOrders() {
     const priorityClass = o.priority <= 2 ? ' high' : '';
     const printed = !!o.printed_at;
     const tr = document.createElement('tr');
-    tr.innerHTML = `
+    tr.className = `status-${o.status}`;
       <td class="order-no">${formatOrderNo(o.order_no) || '#' + o.id}</td>
       <td style="color:#9ca3af;white-space:nowrap">${date}</td>
       <td><span class="badge badge-${o.status}">${o.status}</span></td>

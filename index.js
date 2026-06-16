@@ -183,7 +183,7 @@ export default {
               LEFT JOIN customers r ON o.recipient_id = r.id
               LEFT JOIN addresses a ON o.address_id   = a.id
               WHERE o.status = ?
-              ORDER BY o.priority ASC, o.created_at DESC
+              ORDER BY o.order_no DESC
             `).bind(status).all()
           : await env.DB.prepare(`
               SELECT o.*,
@@ -194,7 +194,7 @@ export default {
               LEFT JOIN customers c ON o.orderer_id  = c.id
               LEFT JOIN customers r ON o.recipient_id = r.id
               LEFT JOIN addresses a ON o.address_id   = a.id
-              ORDER BY o.priority ASC, o.created_at DESC
+              ORDER BY o.order_no DESC
             `).all();
         return json(rows.results);
       }

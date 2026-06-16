@@ -264,6 +264,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .tbl tbody tr { border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background .1s; }
 .tbl tbody tr:hover { background: #f8faff; }
 .tbl tbody tr:last-child { border-bottom: none; }
+.tbl tbody tr.status-주문입력 { background: rgba(148,163,184,.08); }
+.tbl tbody tr.status-주문확정 { background: rgba(59,130,246,.08); }
+.tbl tbody tr.status-주문출력 { background: rgba(245,158,11,.08); }
+.tbl tbody tr.status-송장출력 { background: rgba(139,92,246,.08); }
+.tbl tbody tr.status-배송완료 { background: rgba(16,185,129,.08); }
+.tbl tbody tr.status-수금완료 { background: rgba(6,95,70,.08); }
 .tbl td { padding: 9px 12px; vertical-align: middle; }
 .tbl td.order-no { font-weight: 700; color: #1d4ed8; white-space: nowrap; }
 .tbl td.names { font-weight: 600; }
