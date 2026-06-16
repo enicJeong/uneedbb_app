@@ -229,6 +229,13 @@ document.getElementById('btn-excel').addEventListener('click', async () => {
 });
 
 loadOrders();
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadOrders();
+});
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) loadOrders();
+});
 </script>
 </body>
 </html>

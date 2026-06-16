@@ -125,7 +125,20 @@ function setupSearch(inputId, searchBtnId, dropdownId, inlineFormId, onSelect) {
   }
 
   btn.addEventListener('click', doSearch);
-  input.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  let isComposing = false;
+  let debounceTimer = null;
+  input.addEventListener('compositionstart', () => { isComposing = true; });
+  input.addEventListener('compositionend', () => {
+    isComposing = false;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 200);
+  });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !isComposing) doSearch(); });
+  input.addEventListener('input', () => {
+    if (isComposing) return;
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 400);
+  });
   document.addEventListener('click', e => {
     if (!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.style.display = 'none';
   });
