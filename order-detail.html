@@ -55,10 +55,9 @@
   <!-- 송장번호 -->
   <div class="card" id="tracking-card">
     <h2>송장번호</h2>
-    <div id="tracking-list"></div>
     <div class="tracking-add">
       <input type="text" id="tracking-input" placeholder="송장번호 입력">
-      <button class="btn btn-primary" id="btn-add-tracking">추가</button>
+      <button class="btn btn-primary" id="btn-save-tracking">저장</button>
     </div>
   </div>
 
@@ -95,18 +94,14 @@
 <script src="nav.js"></script>
 <script>
 const API = BB_CONFIG.API;
-const STATUSES = ['접수', '출력', '송장', '발송'];
+const STATUSES = ['주문입력', '주문확정', '주문출력', '송장출력', '배송완료', '수금완료'];
 const params = new URLSearchParams(location.search);
 const orderId = params.get('id');
 let order = null;
 
 async function loadOrder() {
-  const [orderRes, trackingRes] = await Promise.all([
-    fetch(`${API}/api/orders/${orderId}`),
-    fetch(`${API}/api/orders/${orderId}/tracking`)
-  ]);
+  const orderRes = await fetch(`${API}/api/orders/${orderId}`);
   order = await orderRes.json();
-  order.trackings = await trackingRes.json();
   render();
 }
 
@@ -139,13 +134,24 @@ function render() {
   // 상태 변경 버튼
   const statusBtns = document.getElementById('status-btns');
   statusBtns.innerHTML = '';
+
+  // 다음 단계 버튼
   if (idx < STATUSES.length - 1) {
+    const next = STATUSES[idx + 1];
     const btn = document.createElement('button');
     btn.className = 'btn btn-primary';
-    btn.textContent = `→ ${STATUSES[idx + 1]} 처리`;
-    btn.addEventListener('click', () => updateStatus(STATUSES[idx + 1]));
+    btn.textContent = `→ ${next}`;
+    btn.addEventListener('click', async () => {
+      if (next === '주문확정') {
+        await confirmOrder();
+      } else {
+        await updateStatus(next);
+      }
+    });
     statusBtns.appendChild(btn);
   }
+
+  // 이전 단계 버튼
   if (idx > 0) {
     const btn = document.createElement('button');
     btn.className = 'btn btn-outline';
@@ -185,25 +191,7 @@ function render() {
   document.getElementById('d-total').textContent     = order.total_amount.toLocaleString() + '원';
 
   // 송장번호
-  const trackingList = document.getElementById('tracking-list');
-  trackingList.innerHTML = '';
-  if (!order.trackings?.length) {
-    trackingList.innerHTML = '<div style="color:#9ca3af;font-size:13px;margin-bottom:4px">등록된 송장번호 없음</div>';
-  } else {
-    order.trackings.forEach(t => {
-      const div = document.createElement('div');
-      div.className = 'tracking-item';
-      div.innerHTML = `
-        <span class="t-no">${t.tracking_number}</span>
-        <button style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px" data-tid="${t.id}">🗑</button>`;
-      div.querySelector('[data-tid]').addEventListener('click', async () => {
-        await fetch(`${API}/api/orders/${orderId}/tracking/${t.id}`, { method: 'DELETE' });
-        showToast('송장번호 삭제됨');
-        await loadOrder();
-      });
-      trackingList.appendChild(div);
-    });
-  }
+  document.getElementById('tracking-input').value = order.tracking_no || '';
   document.getElementById('tracking-card').style.display =
     order.delivery_type === '택배' ? '' : 'none';
 
@@ -232,6 +220,15 @@ async function updateStatus(status) {
   await loadOrder();
 }
 
+async function confirmOrder() {
+  await fetch(`${API}/api/orders/${orderId}/confirm`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  showToast('✅ 주문확정 및 문자 발송 등록 완료');
+  await loadOrder();
+}
+
 async function updatePayment(payment_status) {
   await fetch(`${API}/api/orders/${orderId}`, {
     method: 'PUT',
@@ -254,16 +251,14 @@ async function updatePayment(payment_status) {
   await loadOrder();
 }
 
-document.getElementById('btn-add-tracking').addEventListener('click', async () => {
+document.getElementById('btn-save-tracking').addEventListener('click', async () => {
   const val = document.getElementById('tracking-input').value.trim();
-  if (!val) { showToast('송장번호를 입력하세요'); return; }
-  await fetch(`${API}/api/orders/${orderId}/tracking`, {
-    method: 'POST',
+  await fetch(`${API}/api/orders/${orderId}/tracking_no`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tracking_number: val })
+    body: JSON.stringify({ tracking_no: val })
   });
-  document.getElementById('tracking-input').value = '';
-  showToast('✅ 송장번호 추가됨');
+  showToast('✅ 송장번호 저장됨');
   await loadOrder();
 });
 
@@ -271,8 +266,8 @@ document.getElementById('btn-print').addEventListener('click', () => {
   const items = (order.items || []).map(i =>
     `<div class="print-row"><span class="pl">${i.product} × ${i.qty}</span><span class="pv">${(i.unit_price * i.qty).toLocaleString()}원</span></div>`
   ).join('');
-  const trackings = order.trackings?.length
-    ? `<div class="print-tracking">송장번호: ${order.trackings.map(t => t.tracking_number).join(', ')}</div>`
+  const trackings = order.tracking_no
+    ? `<div class="print-tracking">송장번호: ${order.tracking_no}</div>`
     : '';
   document.getElementById('print-content').innerHTML = `
     <div class="print-row"><span class="pl">주문번호</span><span class="pv">${order.order_no || '#' + order.id}</span></div>

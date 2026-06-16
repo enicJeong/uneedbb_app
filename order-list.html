@@ -6,14 +6,17 @@
 <title>주문 목록 — bb</title>
 <link rel="stylesheet" href="style.css">
 <style>
-  .wrap { max-width: 1200px; }
+  .wrap { max-width: 1300px; }
   .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 
-  /* 데스크탑 테이블 */
   .desktop-table { display: none; }
   @media (min-width: 768px) {
     .mobile-list   { display: none; }
     .desktop-table { display: block; }
+  }
+
+  .print-chk {
+    width: 16px; height: 16px; cursor: pointer; accent-color: #10b981;
   }
 </style>
 </head>
@@ -25,20 +28,22 @@
   </div>
 
   <div class="summary">
-    <div class="summary-card"><div class="num" id="cnt-접수">-</div><div class="label">접수</div></div>
-    <div class="summary-card"><div class="num" id="cnt-출력">-</div><div class="label">출력</div></div>
-    <div class="summary-card"><div class="num" id="cnt-송장">-</div><div class="label">송장</div></div>
-    <div class="summary-card"><div class="num" id="cnt-발송">-</div><div class="label">발송</div></div>
-    <div class="summary-card"><div class="num" id="cnt-미수" style="color:#ef4444">-</div><div class="label">미수</div></div>
+    <div class="summary-card"><div class="num" id="cnt-주문입력">-</div><div class="label">주문입력</div></div>
+    <div class="summary-card"><div class="num" id="cnt-주문확정">-</div><div class="label">주문확정</div></div>
+    <div class="summary-card"><div class="num" id="cnt-주문출력">-</div><div class="label">주문출력</div></div>
+    <div class="summary-card"><div class="num" id="cnt-송장출력">-</div><div class="label">송장출력</div></div>
+    <div class="summary-card"><div class="num" id="cnt-배송완료">-</div><div class="label">배송완료</div></div>
+    <div class="summary-card"><div class="num" id="cnt-수금완료">-</div><div class="label">수금완료</div></div>
   </div>
 
   <div class="filter-row">
     <button class="filter-btn active" data-filter="">전체</button>
-    <button class="filter-btn" data-filter="접수">접수</button>
-    <button class="filter-btn" data-filter="출력">출력</button>
-    <button class="filter-btn" data-filter="송장">송장</button>
-    <button class="filter-btn" data-filter="발송">발송</button>
-    <button class="filter-btn" data-filter="__미수">미수</button>
+    <button class="filter-btn" data-filter="주문입력">주문입력</button>
+    <button class="filter-btn" data-filter="주문확정">주문확정</button>
+    <button class="filter-btn" data-filter="주문출력">주문출력</button>
+    <button class="filter-btn" data-filter="송장출력">송장출력</button>
+    <button class="filter-btn" data-filter="배송완료">배송완료</button>
+    <button class="filter-btn" data-filter="수금완료">수금완료</button>
   </div>
 
   <!-- 모바일 카드 -->
@@ -52,6 +57,7 @@
           <th>주문번호</th>
           <th>접수일</th>
           <th>진행</th>
+          <th>주문서</th>
           <th>주문자</th>
           <th>메모</th>
           <th>수령자</th>
@@ -76,15 +82,14 @@
 <script>
 const API = BB_CONFIG.API;
 let allOrders = [];
+let currentFilter = '';
 
-// 주문번호 포맷 변환: 주문-2026-000 → 26주문-000
 function formatOrderNo(orderNo) {
   if (!orderNo) return orderNo;
   const m = orderNo.match(/^주문-(\d{4})-(\d+)$/);
   if (m) return `${m[1].slice(2)}주문-${m[2]}`;
   return orderNo;
 }
-let currentFilter = '';
 
 async function loadOrders() {
   const res = await fetch(`${API}/api/orders`);
@@ -94,16 +99,25 @@ async function loadOrders() {
 }
 
 function updateSummary() {
-  ['접수','출력','송장','발송'].forEach(s => {
+  ['주문입력','주문확정','주문출력','송장출력','배송완료','수금완료'].forEach(s => {
     document.getElementById('cnt-' + s).textContent = allOrders.filter(o => o.status === s).length;
   });
-  document.getElementById('cnt-미수').textContent = allOrders.filter(o => o.payment_status === '미수').length;
 }
 
 function getFiltered() {
-  if (currentFilter === '__미수') return allOrders.filter(o => o.payment_status === '미수');
   if (currentFilter) return allOrders.filter(o => o.status === currentFilter);
   return allOrders;
+}
+
+async function togglePrinted(e, orderId, current) {
+  e.stopPropagation();
+  const newVal = current ? 0 : 1;
+  await fetch(`${API}/api/orders/${orderId}/printed`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ printed: newVal })
+  });
+  await loadOrders();
 }
 
 function renderOrders() {
@@ -154,11 +168,15 @@ function renderOrders() {
   filtered.forEach(o => {
     const date = (o.created_at || '').slice(0, 10);
     const priorityClass = o.priority <= 2 ? ' high' : '';
+    const printed = !!o.printed_at;
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="order-no">${formatOrderNo(o.order_no) || '#' + o.id}</td>
       <td style="color:#9ca3af;white-space:nowrap">${date}</td>
       <td><span class="badge badge-${o.status}">${o.status}</span></td>
+      <td style="text-align:center">
+        <input type="checkbox" class="print-chk" ${printed ? 'checked' : ''} data-id="${o.id}" data-printed="${printed ? 1 : 0}">
+      </td>
       <td class="names">
         ${o.orderer_name}
         <div style="font-size:11px;color:#9ca3af">${o.orderer_phone || ''}</div>
@@ -175,6 +193,9 @@ function renderOrders() {
       <td class="amount">${o.total_amount.toLocaleString()}원</td>
       <td><span class="badge badge-${o.payment_status}">${o.payment_status}</span></td>
       <td><span class="badge badge-p${priorityClass}">P${o.priority}</span></td>`;
+    tr.querySelector('.print-chk').addEventListener('click', (e) => {
+      togglePrinted(e, o.id, printed);
+    });
     tr.addEventListener('click', () => { window.location.href = `order-detail.html?id=${o.id}`; });
     tbody.appendChild(tr);
   });
