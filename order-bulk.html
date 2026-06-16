@@ -105,7 +105,9 @@
   <!-- 탭 2: 주소 일괄 입력                               -->
   <!-- ══════════════════════════════════════════════════ -->
   <div id="tab-bulk" style="display:none">
-    <p class="desc">엑셀에서 아래 순서대로 열을 복사해서 붙여넣으세요. 헤더 행은 제외하세요.</p>
+    <p class="desc">엑셀에서 아래 순서대로 열을 복사해서 붙여넣으세요. 헤더 행은 제외하세요.
+      <button class="btn btn-outline" id="btn-template-dl" style="margin-left:12px;font-size:12px;padding:4px 10px">📥 템플릿 다운로드</button>
+    </p>
 
     <div class="card">
       <h2>① 엑셀 붙여넣기</h2>
@@ -162,6 +164,7 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script src="nav.js"></script>
@@ -591,6 +594,21 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   rows = [];
   setStatus('parse-status', '');
   setStatus('import-status', '');
+});
+
+// ── 템플릿 다운로드 ───────────────────────────────────
+document.getElementById('btn-template-dl').addEventListener('click', () => {
+  const header = ['주문일(mm-dd)','주문번호','주문자이름','주문자전화번호','메모','상품명','수량','배송방법','수령자이름','수령자전화번호','수령자주소'];
+  const example = ['06-16','26주문-001','홍길동','01012345678','선물포장','블루베리 2kg','2','택배','김영희','01098765432','서울 강남구 테헤란로 123'];
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([header, example]);
+
+  // 헤더 열 너비
+  ws['!cols'] = [10, 12, 10, 14, 12, 12, 6, 8, 10, 14, 30].map(w => ({ wch: w }));
+
+  XLSX.utils.book_append_sheet(wb, ws, '주문입력');
+  XLSX.writeFile(wb, '주문일괄입력_템플릿.xlsx');
 });
 </script>
 </body>
