@@ -37,6 +37,58 @@ async function generateOrderNo(db) {
   return `${prefix}${String(next).padStart(3, '0')}`;
 }
 
+// 배송완료 SMS 등록
+async function insertDeliverySms(db, orderId) {
+  const order = await db.prepare(`
+    SELECT o.*,
+      c.name AS orderer_name, c.phone AS orderer_phone,
+      r.name AS recipient_name, r.phone AS recipient_phone
+    FROM orders o
+    LEFT JOIN customers c ON o.orderer_id = c.id
+    LEFT JOIN customers r ON o.recipient_id = r.id
+    WHERE o.id = ?
+  `).bind(orderId).first();
+  if (!order) return;
+
+  const items = await db.prepare(
+    `SELECT SUM(qty) AS total_qty FROM order_items WHERE order_id = ?`
+  ).bind(orderId).first();
+  const qty = items?.total_qty || 0;
+
+  const recipientName  = order.recipient_name  || order.orderer_name;
+  const recipientPhone = order.recipient_phone || order.orderer_phone;
+  const trackingNo     = order.tracking_no || '';
+
+  // 발송일 포맷: 6월 16일(화)
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const day   = now.getDate();
+  const dayNames = ['일','월','화','수','목','금','토'];
+  const dayName  = dayNames[now.getDay()];
+  const dateStr  = `${month}월 ${day}일(${dayName})`;
+
+  const makeMsg = (name) =>
+    `[블루베리아침농원]\n<${order.orderer_name}>님이 주문하신 블루베리 ${qty}Kg 가\n<${name}>님께 ${dateStr} 저녁 택배로 발송하였습니다.\n로젠택배 [${trackingNo}]`;
+
+  const sameRecipient = recipientPhone === order.orderer_phone;
+
+  if (sameRecipient) {
+    // 수신자 = 주문자 → 1건
+    await db.prepare(
+      `INSERT INTO sms_queue (order_id, customer_id, phone, message) VALUES (?, ?, ?, ?)`
+    ).bind(orderId, order.orderer_id, order.orderer_phone, makeMsg(recipientName)).run();
+  } else {
+    // 주문자에게 1건
+    await db.prepare(
+      `INSERT INTO sms_queue (order_id, customer_id, phone, message) VALUES (?, ?, ?, ?)`
+    ).bind(orderId, order.orderer_id, order.orderer_phone, makeMsg(recipientName)).run();
+    // 수령자에게 1건
+    await db.prepare(
+      `INSERT INTO sms_queue (order_id, customer_id, phone, message) VALUES (?, ?, ?, ?)`
+    ).bind(orderId, order.recipient_id, recipientPhone, makeMsg(recipientName)).run();
+  }
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
@@ -52,10 +104,15 @@ export default {
         const q = url.searchParams.get('q') || '';
         const qn = normalizePhone(q);
         const rows = q
-          ? await env.DB.prepare(
-              `SELECT id, name, phone, memo FROM customers
-               WHERE name LIKE ? OR phone LIKE ? ORDER BY name LIMIT 50`
-            ).bind(`%${q}%`, `%${qn}%`).all()
+          ? qn
+            ? await env.DB.prepare(
+                `SELECT id, name, phone, memo FROM customers
+                 WHERE name LIKE ? OR phone LIKE ? ORDER BY name LIMIT 50`
+              ).bind(`%${q}%`, `%${qn}%`).all()
+            : await env.DB.prepare(
+                `SELECT id, name, phone, memo FROM customers
+                 WHERE name LIKE ? ORDER BY name LIMIT 50`
+              ).bind(`%${q}%`).all()
           : await env.DB.prepare(
               `SELECT id, name, phone, memo FROM customers ORDER BY name LIMIT 200`
             ).all();
@@ -359,6 +416,12 @@ export default {
         await env.DB.prepare(
           `UPDATE orders SET status=?, updated_at=datetime('now','localtime') WHERE id=?`
         ).bind(status, id).run();
+
+        // 배송완료 시 SMS 등록
+        if (status === '배송완료') {
+          await insertDeliverySms(env.DB, id);
+        }
+
         return json({ ok: true });
       }
 

@@ -39,14 +39,20 @@ function renderSelectedCustomer(divId, customer, onClear) {
 function showInlineForm(defaultVal, formWrapperId, onSaved) {
   const wrap = document.getElementById(formWrapperId);
   wrap.innerHTML = '';
+
+  // 010으로 시작하거나 숫자만이면 전화번호로 판단
+  const isPhone = /^01[0-9]/.test(defaultVal) || /^[0-9\-]+$/.test(defaultVal);
+  const defaultName  = isPhone ? '' : defaultVal;
+  const defaultPhone = isPhone ? defaultVal.replace(/[^0-9]/g, '') : '';
+
   const form = document.createElement('div');
   form.className = 'inline-form';
   form.innerHTML = `
     <div class="form-title">+ 신규 고객 등록</div>
     <label>이름</label>
-    <input type="text" id="if-name" value="${defaultVal}" placeholder="홍길동">
+    <input type="text" id="if-name" value="${defaultName}" placeholder="홍길동">
     <label>전화번호</label>
-    <input type="text" id="if-phone" placeholder="01012345678">
+    <input type="text" id="if-phone" value="${defaultPhone}" placeholder="01012345678">
     <label>특이사항</label>
     <input type="text" id="if-memo" placeholder="선택사항">
     <div class="btn-row">
@@ -54,7 +60,9 @@ function showInlineForm(defaultVal, formWrapperId, onSaved) {
       <button class="btn-cancel" id="if-cancel">취소</button>
     </div>`;
   wrap.appendChild(form);
-  document.getElementById('if-phone').focus();
+
+  // 비어있는 칸에 포커스
+  document.getElementById(defaultName ? 'if-phone' : 'if-name').focus();
 
   document.getElementById('if-cancel').addEventListener('click', () => { wrap.innerHTML = ''; });
   document.getElementById('if-save').addEventListener('click', async () => {
@@ -199,7 +207,18 @@ function renderItems(items, onUpdate) {
     tr.innerHTML = `
       <td><select class="item-product" data-idx="${i}">${opts}</select></td>
       <td><input type="number" class="item-price" data-idx="${i}" value="${item.unit_price}" min="0" step="1000" style="width:90px"></td>
-      <td><input type="number" class="item-qty" data-idx="${i}" value="${item.qty}" min="1" max="99" style="width:60px"></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:4px">
+          <button class="qty-btn qty-minus" data-idx="${i}" style="width:28px;height:28px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;font-size:16px;cursor:pointer;line-height:1">−</button>
+          <span class="qty-display" data-idx="${i}" style="min-width:28px;text-align:center;font-weight:700;font-size:14px">${item.qty}</span>
+          <button class="qty-btn qty-plus" data-idx="${i}" style="width:28px;height:28px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;font-size:16px;cursor:pointer;line-height:1">+</button>
+          <div style="display:flex;gap:3px;margin-left:4px">
+            ${[1,2,3,4,5,6,8,10].map(n =>
+              `<button class="qty-preset" data-idx="${i}" data-val="${n}" style="padding:2px 6px;border:1px solid ${item.qty===n?'#2563eb':'#e5e7eb'};border-radius:4px;background:${item.qty===n?'#eff6ff':'#fff'};color:${item.qty===n?'#2563eb':'#6b7280'};font-size:11px;font-weight:600;cursor:pointer">${n}</button>`
+            ).join('')}
+          </div>
+        </div>
+      </td>
       <td><button class="btn-del" data-idx="${i}">✕</button></td>`;
     tbody.appendChild(tr);
   });
@@ -220,9 +239,25 @@ function renderItems(items, onUpdate) {
       if (onUpdate) onUpdate(items);
     });
   });
-  document.querySelectorAll('.item-qty').forEach(inp => {
-    inp.addEventListener('input', e => {
-      items[+e.target.dataset.idx].qty = +e.target.value;
+  document.querySelectorAll('.qty-minus').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = +btn.dataset.idx;
+      if (items[i].qty > 1) { items[i].qty--; renderItems(items, onUpdate); if (onUpdate) onUpdate(items); }
+    });
+  });
+  document.querySelectorAll('.qty-plus').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = +btn.dataset.idx;
+      items[i].qty++;
+      renderItems(items, onUpdate);
+      if (onUpdate) onUpdate(items);
+    });
+  });
+  document.querySelectorAll('.qty-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = +btn.dataset.idx;
+      items[i].qty = +btn.dataset.val;
+      renderItems(items, onUpdate);
       if (onUpdate) onUpdate(items);
     });
   });
