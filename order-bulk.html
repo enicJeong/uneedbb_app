@@ -40,16 +40,17 @@
   <div class="card">
     <h2>① 엑셀 붙여넣기</h2>
     <div class="col-hint">
-      <span class="col-tag">A. 주문번호</span>
-      <span class="col-tag">B. 주문자 이름</span>
-      <span class="col-tag">C. 주문자 전화번호</span>
-      <span class="col-tag">D. 수령자 이름</span>
-      <span class="col-tag">E. 수령자 전화번호</span>
+      <span class="col-tag">A. 주문일 (mm-dd)</span>
+      <span class="col-tag">B. 주문번호</span>
+      <span class="col-tag">C. 주문자 이름</span>
+      <span class="col-tag">D. 주문자 전화번호</span>
+      <span class="col-tag">E. 메모</span>
       <span class="col-tag">F. 상품명</span>
       <span class="col-tag">G. 수량</span>
-      <span class="col-tag">H. 주소</span>
-      <span class="col-tag">I. 배송방법</span>
-      <span class="col-tag">J. 메모</span>
+      <span class="col-tag">H. 배송방법</span>
+      <span class="col-tag">I. 수령자 이름</span>
+      <span class="col-tag">J. 수령자 전화번호</span>
+      <span class="col-tag">K. 수령자 주소</span>
     </div>
     <textarea id="paste-area" placeholder="엑셀에서 복사(Ctrl+C) 후 여기에 붙여넣기(Ctrl+V)"></textarea>
     <div class="gap" style="margin-top:10px">
@@ -67,13 +68,14 @@
         <thead>
           <tr>
             <th>#</th>
+            <th>주문일</th>
             <th>주문번호</th>
             <th>주문자</th>
-            <th>수령자</th>
-            <th>상품/수량</th>
-            <th>주소</th>
-            <th>배송</th>
             <th>메모</th>
+            <th>상품/수량</th>
+            <th>배송</th>
+            <th>수령자</th>
+            <th>주소</th>
             <th>상태</th>
           </tr>
         </thead>
@@ -148,17 +150,33 @@ document.getElementById('btn-parse').addEventListener('click', async () => {
   const lines = raw.split('\n').filter(l => l.trim());
   for (const line of lines) {
     const cols = line.split('\t').map(c => c.trim());
-    // A=0 B=1 C=2 D=3 E=4 F=5(상품명) G=6(수량) H=7(주소) I=8(배송) J=9(메모)
+    // A=0(주문일) B=1(주문번호) C=2(주문자이름) D=3(주문자전화) E=4(메모)
+    // F=5(상품명) G=6(수량) H=7(배송방법) I=8(수령자이름) J=9(수령자전화) K=10(수령자주소)
+
+    // 주문일 파싱: mm-dd → 올해 yyyy-mm-dd
+    const rawDate = cols[0] || '';
+    let created_at = '';
+    if (rawDate) {
+      const year = new Date().getFullYear();
+      const parts = rawDate.replace(/\//g, '-').split('-');
+      if (parts.length === 2) {
+        created_at = `${year}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+      } else {
+        created_at = rawDate;
+      }
+    }
+
     rows.push({
-      order_no:         cols[0] || '',
-      orderer_name:     cols[1] || '',
-      orderer_phone:    (cols[2] || '').replace(/[^0-9]/g, ''),
-      recipient_name:   cols[3] || '',
-      recipient_phone:  (cols[4] || '').replace(/[^0-9]/g, ''),
+      created_at,
+      order_no:         cols[1] || '',
+      orderer_name:     cols[2] || '',
+      orderer_phone:    (cols[3] || '').replace(/[^0-9]/g, ''),
+      memo:             cols[4] || '',
       items_raw:        `${cols[5] || ''} ${cols[6] || ''}`.trim(),
-      address:          cols[7] || '',
-      delivery_type:    parseDelivery(cols[8] || ''),
-      memo:             cols[9] || '',
+      delivery_type:    parseDelivery(cols[7] || ''),
+      recipient_name:   cols[8] || '',
+      recipient_phone:  (cols[9] || '').replace(/[^0-9]/g, ''),
+      address:          cols[10] || '',
       items:            parseItems(cols[5] || '', cols[6] || ''),
       orderer_id:       null,
       recipient_id:     null,
@@ -271,6 +289,7 @@ function renderPreview() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="color:#9ca3af">${i + 1}</td>
+      <td style="color:#9ca3af;white-space:nowrap">${row.created_at || ''}</td>
       <td class="${orderNoClass}">
         <span class="editable" contenteditable="true" data-row="${i}" data-field="order_no">${row.order_no}</span>
       </td>
@@ -279,26 +298,26 @@ function renderPreview() {
         <div style="font-weight:600">${row.orderer_name}</div>
         <div style="font-size:11px;color:#6b7280">${row.orderer_phone}</div>
       </td>
-      <td>
-        ${row.recipient_name || row.recipient_phone
-          ? `${recipBadge}<div style="font-weight:600">${row.recipient_name}</div><div style="font-size:11px;color:#6b7280">${row.recipient_phone}</div>`
-          : '<span style="color:#d1d5db">주문자 동일</span>'}
+      <td style="color:#9ca3af;font-size:12px">
+        <span class="editable" contenteditable="true" data-row="${i}" data-field="memo">${row.memo}</span>
       </td>
       <td>
         <div>${itemText}</div>
         <div style="font-size:12px;color:#6b7280;margin-top:2px">${totalAmt.toLocaleString()}원</div>
-      </td>
-      <td class="${addrClass}" style="font-size:12px">
-        <span class="editable" contenteditable="true" data-row="${i}" data-field="address">${row.address}</span>
-        ${addrClass ? '<div style="font-size:11px;color:#b45309">신규 등록됨</div>' : ''}
       </td>
       <td>
         <select class="cell-select" data-row="${i}" data-field="delivery_type">
           ${DELIVERY_TYPES.map(d => `<option ${d === row.delivery_type ? 'selected' : ''}>${d}</option>`).join('')}
         </select>
       </td>
-      <td style="color:#9ca3af;font-size:12px">
-        <span class="editable" contenteditable="true" data-row="${i}" data-field="memo">${row.memo}</span>
+      <td>
+        ${row.recipient_name || row.recipient_phone
+          ? `${recipBadge}<div style="font-weight:600">${row.recipient_name}</div><div style="font-size:11px;color:#6b7280">${row.recipient_phone}</div>`
+          : '<span style="color:#d1d5db">주문자 동일</span>'}
+      </td>
+      <td class="${addrClass}" style="font-size:12px">
+        <span class="editable" contenteditable="true" data-row="${i}" data-field="address">${row.address}</span>
+        ${addrClass ? '<div style="font-size:11px;color:#b45309">신규 등록됨</div>' : ''}
       </td>
       <td>${statusBadge}</td>`;
     tbody.appendChild(tr);
@@ -389,6 +408,7 @@ document.getElementById('btn-import').addEventListener('click', async () => {
           memo:          row.memo,
           items:         row.items,
           shipping_fee,
+          created_at:    row.created_at || null,
         })
       });
       const d = await res.json();

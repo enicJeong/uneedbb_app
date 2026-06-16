@@ -35,6 +35,7 @@
     <div class="info-row"><span class="info-label">배송방법</span><span class="info-value" id="d-delivery"></span></div>
     <div class="info-row"><span class="info-label">주소</span><span class="info-value" id="d-address"></span></div>
     <div class="info-row"><span class="info-label">우선순위</span><span class="info-value" id="d-priority"></span></div>
+    <div class="info-row"><span class="info-label">주문서</span><span class="info-value" id="d-printed"></span></div>
     <div class="info-row"><span class="info-label">메모</span><span class="info-value" id="d-memo"></span></div>
   </div>
 
@@ -135,7 +136,16 @@ function render() {
   const statusBtns = document.getElementById('status-btns');
   statusBtns.innerHTML = '';
 
-  // 다음 단계 버튼
+  // 이전 단계 버튼 (왼쪽)
+  if (idx > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline';
+    btn.textContent = `← ${STATUSES[idx - 1]}로 되돌리기`;
+    btn.addEventListener('click', () => updateStatus(STATUSES[idx - 1]));
+    statusBtns.appendChild(btn);
+  }
+
+  // 다음 단계 버튼 (오른쪽)
   if (idx < STATUSES.length - 1) {
     const next = STATUSES[idx + 1];
     const btn = document.createElement('button');
@@ -151,15 +161,6 @@ function render() {
     statusBtns.appendChild(btn);
   }
 
-  // 이전 단계 버튼
-  if (idx > 0) {
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-outline';
-    btn.textContent = `← ${STATUSES[idx - 1]}로 되돌리기`;
-    btn.addEventListener('click', () => updateStatus(STATUSES[idx - 1]));
-    statusBtns.appendChild(btn);
-  }
-
   // 주문 정보
   document.getElementById('d-order-no').textContent   = order.order_no || '-';
   document.getElementById('d-date').textContent       = order.created_at || '-';
@@ -169,6 +170,9 @@ function render() {
   document.getElementById('d-delivery').textContent   = order.delivery_type;
   document.getElementById('d-address').textContent    = order.address || '-';
   document.getElementById('d-priority').textContent   = 'P' + order.priority;
+  document.getElementById('d-printed').innerHTML      = order.printed_at
+    ? `<span style="color:#10b981">✅ 출력완료 (${order.printed_at.slice(0,16)})</span>`
+    : `<span style="color:#9ca3af">미출력</span>`;
   document.getElementById('d-memo').textContent       = order.memo || '-';
 
   // 상품

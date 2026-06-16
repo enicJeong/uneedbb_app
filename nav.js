@@ -5,6 +5,7 @@
     { href: 'order-list.html', icon: '📋', label: '목록' },
     { href: 'customers.html',  icon: '👥', label: '고객' },
     { href: 'order-bulk.html', icon: '📥', label: '일괄' },
+    { href: 'sms-queue.html',  icon: '💬', label: '문자' },
   ];
 
   const currentPage = location.pathname.split('/').pop() || 'index.html';
