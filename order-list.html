@@ -84,13 +84,6 @@ const API = BB_CONFIG.API;
 let allOrders = [];
 let currentFilter = '';
 
-function formatOrderNo(orderNo) {
-  if (!orderNo) return orderNo;
-  const m = orderNo.match(/^주문-(\d{4})-(\d+)$/);
-  if (m) return `${m[1].slice(2)}주문-${m[2]}`;
-  return orderNo;
-}
-
 async function loadOrders() {
   const res = await fetch(`${API}/api/orders`);
   allOrders = await res.json();
@@ -144,7 +137,7 @@ function renderOrders() {
     const date = (o.created_at || '').slice(0, 10);
     card.innerHTML = `
       <div class="order-top">
-        <span class="order-id">${formatOrderNo(o.order_no) || '#' + o.id} · ${date}</span>
+        <span class="order-id">${o.order_no || '#' + o.id} · ${date}</span>
         <div class="badges">
           <span class="badge badge-p${priorityClass}">P${o.priority}</span>
           <span class="badge badge-${o.status}">${o.status}</span>
@@ -172,6 +165,7 @@ function renderOrders() {
     const tr = document.createElement('tr');
     tr.className = `status-${o.status}`;
     tr.innerHTML = `
+      <td class="order-no">${o.order_no || '#' + o.id}</td>
       <td style="color:#9ca3af;white-space:nowrap">${date}</td>
       <td><span class="badge badge-${o.status}">${o.status}</span></td>
       <td style="text-align:center">
