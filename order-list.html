@@ -24,7 +24,10 @@
 <div class="wrap">
   <div class="top">
     <h1 style="font-size:20px;font-weight:700">📋 주문 목록</h1>
-    <a href="order-new.html"><button class="btn btn-primary">+ 새 주문</button></a>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline" id="btn-excel">📊 엑셀 출력</button>
+      <a href="order-new.html"><button class="btn btn-primary">+ 새 주문</button></a>
+    </div>
   </div>
 
   <div class="summary">
@@ -76,6 +79,7 @@
   <div id="empty-msg" style="display:none" class="empty">해당하는 주문이 없습니다</div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script src="nav.js"></script>
@@ -202,6 +206,26 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     currentFilter = btn.dataset.filter;
     renderOrders();
   });
+});
+
+// ── 엑셀 출력 (송장출력 상태) ────────────────────────
+document.getElementById('btn-excel').addEventListener('click', async () => {
+  const res = await fetch(`${API}/api/orders/export?status=송장출력`);
+  const orders = await res.json();
+  if (!orders.length) { showToast('송장출력 상태 주문이 없습니다'); return; }
+
+  const header = ['수하인명','','수하인주소','수하인전화번호','수하인핸드폰번호','택배수량','택배운임','운임구분','품목명','','배송메세지'];
+  const dataRows = orders.map(o => {
+    const name  = o.recipient_name  || o.orderer_name;
+    const phone = o.recipient_phone || o.orderer_phone;
+    return [name, '', o.address || '', phone, phone, o.total_qty || 1, 5000, '010', o.order_no || '', '', '생물,파손주의'];
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
+  XLSX.utils.book_append_sheet(wb, ws, '엑셀파일첫행-제목있음');
+  XLSX.writeFile(wb, `송장출력_${new Date().toISOString().slice(0,10)}.xls`);
+  showToast(`✅ ${orders.length}건 엑셀 저장됨`);
 });
 
 loadOrders();

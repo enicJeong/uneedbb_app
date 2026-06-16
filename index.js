@@ -149,6 +149,34 @@ export default {
         return json({ ok: true });
       }
 
+      // ── 송장출력용 목록 (수량 포함) ────────────────────
+      if (path === '/api/orders/export' && method === 'GET') {
+        const status = url.searchParams.get('status') || '송장출력';
+        const rows = await env.DB.prepare(`
+          SELECT o.*,
+            c.name  AS orderer_name,  c.phone  AS orderer_phone,
+            r.name  AS recipient_name, r.phone AS recipient_phone,
+            a.address,
+            (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS total_qty
+          FROM orders o
+          LEFT JOIN customers c ON o.orderer_id  = c.id
+          LEFT JOIN customers r ON o.recipient_id = r.id
+          LEFT JOIN addresses a ON o.address_id   = a.id
+          WHERE o.status = ?
+          ORDER BY o.order_no ASC
+        `).bind(status).all();
+        return json(rows.results);
+      }
+
+      // ── 주문번호로 조회 ────────────────────────────────
+      if (path === '/api/orders/by-no' && method === 'GET') {
+        const order_no = url.searchParams.get('order_no') || '';
+        const row = await env.DB.prepare(
+          `SELECT id FROM orders WHERE order_no = ?`
+        ).bind(order_no).first();
+        return json(row || { id: null });
+      }
+
       // ── 주문번호 채번 ──────────────────────────────────
       if (path === '/api/orders/next-no' && method === 'GET') {
         const orderNo = await generateOrderNo(env.DB);
