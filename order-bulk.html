@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주문 일괄 입력 — bb</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { max-width: 1200px; }
+  textarea { width: 100%; height: 160px; padding: 10px 12px; border: 1px solid #d1d5db;
+    border-radius: 8px; font-size: 13px; font-family: monospace; resize: vertical; }
+  textarea:focus { outline: none; border-color: #2563eb; }
+  .col-hint { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .col-tag { padding: 3px 10px; border-radius: 99px; background: #eff6ff; color: #1d4ed8;
+    font-size: 12px; font-weight: 600; border: 1px solid #bfdbfe; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
+  th { background: #f3f4f6; padding: 8px 10px; text-align: left; border-bottom: 1px solid #e5e7eb;
+    font-size: 12px; color: #6b7280; font-weight: 700; white-space: nowrap; }
+  td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+  tr:hover td { background: #fafbff; }
+  .cell-err  { background: #fff1f2; }
+  .cell-warn { background: #fffbeb; }
+  .editable { border: 1px solid transparent; border-radius: 4px; padding: 2px 4px;
+    min-width: 60px; display: inline-block; }
+  .editable:focus { border-color: #2563eb; outline: none; background: #fff; }
+  select.cell-select { padding: 3px 6px; border: 1px solid #d1d5db; border-radius: 5px;
+    font-size: 12px; font-family: inherit; background: #fff; }
+  .top { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+  .desc { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <button class="btn-back" onclick="history.back()">←</button>
+    <h1 style="font-size:20px;font-weight:700">📥 주문 일괄 입력</h1>
+  </div>
+  <p class="desc">엑셀에서 아래 순서대로 열을 복사해서 붙여넣으세요. 헤더 행은 제외하세요.</p>
+
+  <div class="card">
+    <h2>① 엑셀 붙여넣기</h2>
+    <div class="col-hint">
+      <span class="col-tag">A. 주문번호</span>
+      <span class="col-tag">B. 주문자 이름</span>
+      <span class="col-tag">C. 주문자 전화번호</span>
+      <span class="col-tag">D. 수령자 이름</span>
+      <span class="col-tag">E. 수령자 전화번호</span>
+      <span class="col-tag">F. 상품명</span>
+      <span class="col-tag">G. 수량</span>
+      <span class="col-tag">H. 주소</span>
+      <span class="col-tag">I. 배송방법</span>
+      <span class="col-tag">J. 메모</span>
+    </div>
+    <textarea id="paste-area" placeholder="엑셀에서 복사(Ctrl+C) 후 여기에 붙여넣기(Ctrl+V)"></textarea>
+    <div class="gap" style="margin-top:10px">
+      <button class="btn btn-primary" id="btn-parse">파싱 &amp; 미리보기</button>
+      <button class="btn btn-outline" id="btn-clear">초기화</button>
+      <span class="status-msg" id="parse-status"></span>
+    </div>
+  </div>
+
+  <div class="card" id="preview-card" style="display:none">
+    <h2>② 미리보기 &amp; 수정 <span id="preview-count"></span></h2>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:8px">셀을 클릭하면 직접 수정할 수 있어요. 빨간 셀은 오류, 노란 셀은 주의.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>주문번호</th>
+            <th>주문자</th>
+            <th>수령자</th>
+            <th>상품/수량</th>
+            <th>주소</th>
+            <th>배송</th>
+            <th>메모</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="preview-body"></tbody>
+      </table>
+    </div>
+    <div class="gap" style="margin-top:16px">
+      <button class="btn btn-success" id="btn-import">DB에 저장</button>
+      <span class="status-msg" id="import-status"></span>
+    </div>
+  </div>
+
+  <div id="result-wrap" style="display:none"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script src="nav.js"></script>
+<script>
+const API = BB_CONFIG.API;
+const PRODUCTS = BB_CONFIG.PRODUCTS;
+const DELIVERY_TYPES = BB_CONFIG.DELIVERY_TYPES;
+const PRICE_MAP = BB_CONFIG.PRICE_MAP;
+
+let rows = [];
+
+// ── 상품 파싱 ──────────────────────────────────────────
+// F열: 상품명, G열: 수량 — 각각 별도 인자로 받음
+function parseItems(productText, qtyText) {
+  const qty = parseInt(qtyText) || 1;
+
+  if (!productText) {
+    return [{ product: PRODUCTS[0].name, unit_price: PRODUCTS[0].price, qty }];
+  }
+
+  const p = productText.trim();
+
+  if (p.includes('즙')) {
+    return [{ product: '(즙)', unit_price: 0, qty }];
+  }
+
+  let price = null;
+  for (const [k, v] of Object.entries(PRICE_MAP)) {
+    if (p.includes(k)) { price = v; break; }
+  }
+
+  if (price !== null) {
+    const product = PRODUCTS.find(pr => pr.price === price)?.name || PRODUCTS[0].name;
+    return [{ product, unit_price: price, qty }];
+  }
+
+  // 매핑 실패 시 기본 상품
+  return [{ product: PRODUCTS[0].name, unit_price: PRODUCTS[0].price, qty }];
+}
+
+function parseDelivery(text) {
+  if (!text) return '택배';
+  const t = text.trim();
+  if (t.includes('현장') || t.includes('직접')) return '현장수령';
+  if (t.includes('배달')) return '배달';
+  return '택배';
+}
+
+// ── 파싱 ──────────────────────────────────────────────
+document.getElementById('btn-parse').addEventListener('click', async () => {
+  const raw = document.getElementById('paste-area').value.trim();
+  if (!raw) { setStatus('parse-status', '데이터를 붙여넣으세요', true); return; }
+
+  setStatus('parse-status', '파싱 중...');
+  rows = [];
+
+  const lines = raw.split('\n').filter(l => l.trim());
+  for (const line of lines) {
+    const cols = line.split('\t').map(c => c.trim());
+    // A=0 B=1 C=2 D=3 E=4 F=5(상품명) G=6(수량) H=7(주소) I=8(배송) J=9(메모)
+    rows.push({
+      order_no:         cols[0] || '',
+      orderer_name:     cols[1] || '',
+      orderer_phone:    (cols[2] || '').replace(/[^0-9]/g, ''),
+      recipient_name:   cols[3] || '',
+      recipient_phone:  (cols[4] || '').replace(/[^0-9]/g, ''),
+      items_raw:        `${cols[5] || ''} ${cols[6] || ''}`.trim(),
+      address:          cols[7] || '',
+      delivery_type:    parseDelivery(cols[8] || ''),
+      memo:             cols[9] || '',
+      items:            parseItems(cols[5] || '', cols[6] || ''),
+      orderer_id:       null,
+      recipient_id:     null,
+      address_id:       null,
+      orderer_status:   '',
+      recipient_status: '',
+      order_no_dup:     false,
+      errors:           [],
+      warnings:         [],
+    });
+  }
+
+  setStatus('parse-status', `${rows.length}행 파싱 완료, DB 조회 중...`);
+
+  for (const row of rows) {
+    row.errors = [];
+    row.warnings = [];
+
+    // 주문번호
+    if (!row.order_no) {
+      row.errors.push('주문번호 없음');
+    } else {
+      const dupRes = await fetch(`${API}/api/orders/check-no?order_no=${encodeURIComponent(row.order_no)}`);
+      const dup = await dupRes.json();
+      if (dup.exists) { row.order_no_dup = true; row.errors.push('주문번호 중복'); }
+    }
+
+    // 주문자
+    if (!row.orderer_phone) {
+      row.errors.push('주문자 전화번호 없음');
+    } else {
+      const res = await fetch(`${API}/api/customers?q=${encodeURIComponent(row.orderer_phone)}`);
+      const data = await res.json();
+      const match = data.find(c => c.phone === row.orderer_phone);
+      if (match) {
+        row.orderer_id = match.id;
+        row.orderer_status = 'found';
+        const dRes = await fetch(`${API}/api/customers/${match.id}`);
+        const d = await dRes.json();
+        const addrMatch = (d.addresses || []).find(a => row.address && a.address.includes(row.address.slice(0, 10)));
+        if (addrMatch) {
+          row.address_id = addrMatch.id;
+        } else if (row.address && row.delivery_type === '택배') {
+          row.warnings.push('주소 신규 등록 필요');
+        }
+      } else {
+        row.orderer_status = 'new';
+        if (!row.orderer_name) row.errors.push('신규 주문자 이름 없음');
+        else row.warnings.push('주문자 신규 등록');
+      }
+    }
+
+    // 수령자
+    const hasDiffRecipient = row.recipient_name || row.recipient_phone;
+    if (hasDiffRecipient) {
+      if (!row.recipient_phone) {
+        row.warnings.push('수령자 전화번호 없음 — 주문자와 동일 처리');
+      } else {
+        const res = await fetch(`${API}/api/customers?q=${encodeURIComponent(row.recipient_phone)}`);
+        const data = await res.json();
+        const match = data.find(c => c.phone === row.recipient_phone);
+        if (match) {
+          row.recipient_id = match.id;
+          row.recipient_status = 'found';
+        } else {
+          row.recipient_status = 'new';
+          if (!row.recipient_name) row.errors.push('신규 수령자 이름 없음');
+          else row.warnings.push('수령자 신규 등록');
+        }
+      }
+    }
+  }
+
+  renderPreview();
+  setStatus('parse-status', '');
+});
+
+// ── 미리보기 ──────────────────────────────────────────
+function renderPreview() {
+  const tbody = document.getElementById('preview-body');
+  tbody.innerHTML = '';
+  let errCount = 0, warnCount = 0;
+
+  rows.forEach((row, i) => {
+    if (row.errors.length) errCount++;
+    else if (row.warnings.length) warnCount++;
+
+    const itemText = row.items.map(it => `${it.product} ×${it.qty}`).join(', ');
+    const totalAmt = row.items.reduce((s, it) => s + it.unit_price * it.qty, 0);
+
+    const ordererBadge = row.orderer_status === 'found'
+      ? '<span class="badge badge-ok">기존</span>'
+      : row.orderer_status === 'new'
+        ? '<span class="badge badge-new">신규</span>' : '';
+
+    const recipBadge = row.recipient_status === 'found'
+      ? '<span class="badge badge-ok">기존</span>'
+      : row.recipient_status === 'new'
+        ? '<span class="badge badge-new">신규</span>' : '';
+
+    const statusBadge = row.errors.length
+      ? `<span class="badge badge-err">오류</span> <span style="font-size:11px;color:#991b1b">${row.errors.join(', ')}</span>`
+      : row.warnings.length
+        ? `<span class="badge badge-warn">주의</span> <span style="font-size:11px;color:#854d0e">${row.warnings.join(', ')}</span>`
+        : '<span class="badge badge-ok">정상</span>';
+
+    const orderNoClass = row.order_no_dup ? 'cell-err' : '';
+    const addrClass = (row.delivery_type === '택배' && !row.address_id && row.address) ? 'cell-warn' : '';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="color:#9ca3af">${i + 1}</td>
+      <td class="${orderNoClass}">
+        <span class="editable" contenteditable="true" data-row="${i}" data-field="order_no">${row.order_no}</span>
+      </td>
+      <td>
+        ${ordererBadge}
+        <div style="font-weight:600">${row.orderer_name}</div>
+        <div style="font-size:11px;color:#6b7280">${row.orderer_phone}</div>
+      </td>
+      <td>
+        ${row.recipient_name || row.recipient_phone
+          ? `${recipBadge}<div style="font-weight:600">${row.recipient_name}</div><div style="font-size:11px;color:#6b7280">${row.recipient_phone}</div>`
+          : '<span style="color:#d1d5db">주문자 동일</span>'}
+      </td>
+      <td>
+        <div>${itemText}</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:2px">${totalAmt.toLocaleString()}원</div>
+      </td>
+      <td class="${addrClass}" style="font-size:12px">
+        <span class="editable" contenteditable="true" data-row="${i}" data-field="address">${row.address}</span>
+        ${addrClass ? '<div style="font-size:11px;color:#b45309">신규 등록됨</div>' : ''}
+      </td>
+      <td>
+        <select class="cell-select" data-row="${i}" data-field="delivery_type">
+          ${DELIVERY_TYPES.map(d => `<option ${d === row.delivery_type ? 'selected' : ''}>${d}</option>`).join('')}
+        </select>
+      </td>
+      <td style="color:#9ca3af;font-size:12px">
+        <span class="editable" contenteditable="true" data-row="${i}" data-field="memo">${row.memo}</span>
+      </td>
+      <td>${statusBadge}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.querySelectorAll('.editable').forEach(el => {
+    el.addEventListener('blur', e => {
+      const i = +e.target.dataset.row;
+      const field = e.target.dataset.field;
+      rows[i][field] = e.target.textContent.trim();
+    });
+  });
+
+  document.querySelectorAll('.cell-select').forEach(sel => {
+    sel.addEventListener('change', e => {
+      const i = +e.target.dataset.row;
+      rows[i].delivery_type = e.target.value;
+    });
+  });
+
+  document.getElementById('preview-count').textContent =
+    `(${rows.length}건 — 오류 ${errCount} / 주의 ${warnCount})`;
+  document.getElementById('preview-card').style.display = '';
+  document.getElementById('btn-import').disabled = errCount > 0;
+  if (errCount > 0) setStatus('import-status', `오류 ${errCount}건 수정 후 저장 가능`, true);
+  else setStatus('import-status', '');
+}
+
+// ── 저장 ──────────────────────────────────────────────
+document.getElementById('btn-import').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-import');
+  btn.disabled = true;
+  let ok = 0, failed = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    setStatus('import-status', `저장 중... ${i + 1}/${rows.length}`);
+    try {
+      // 주문자 신규 등록
+      if (row.orderer_status === 'new') {
+        const res = await fetch(`${API}/api/customers`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: row.orderer_name, phone: row.orderer_phone, memo: '' })
+        });
+        const d = await res.json();
+        if (!d.id) throw new Error('주문자 등록 실패');
+        row.orderer_id = d.id;
+      }
+
+      // 수령자 신규 등록
+      if (row.recipient_status === 'new' && row.recipient_phone) {
+        const res = await fetch(`${API}/api/customers`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: row.recipient_name, phone: row.recipient_phone, memo: '' })
+        });
+        const d = await res.json();
+        if (!d.id) throw new Error('수령자 등록 실패');
+        row.recipient_id = d.id;
+      }
+
+      // 주소 신규 등록
+      if (row.delivery_type === '택배' && row.address && !row.address_id && row.orderer_id) {
+        const res = await fetch(`${API}/api/addresses`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customer_id: row.orderer_id, address: row.address, label: '', is_default: 0 })
+        });
+        const d = await res.json();
+        if (d.id) row.address_id = d.id;
+      }
+
+      // 주문 등록
+      const shipping_fee = row.delivery_type === '택배'
+        ? (row.items.reduce((s, it) => s + it.qty, 0) >= 4 ? 0 : 3000) : 0;
+
+      const res = await fetch(`${API}/api/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_no:      row.order_no,
+          orderer_id:    row.orderer_id,
+          recipient_id:  row.recipient_id || null,
+          address_id:    row.address_id || null,
+          delivery_type: row.delivery_type,
+          priority:      3,
+          memo:          row.memo,
+          items:         row.items,
+          shipping_fee,
+        })
+      });
+      const d = await res.json();
+      if (!d.id) throw new Error(d.error || '주문 등록 실패');
+      ok++;
+    } catch (e) {
+      failed.push(`행 ${i + 1} (${row.order_no || '?'}): ${e.message}`);
+    }
+  }
+
+  const box = document.getElementById('result-wrap');
+  box.style.display = '';
+  box.innerHTML = `<div class="result-box ${failed.length ? 'result-warn' : 'result-ok'}">
+    ✅ 완료 — 성공 <strong>${ok}건</strong> / 실패 <strong>${failed.length}건</strong>
+    ${failed.length ? `<div class="err-list">${failed.join('<br>')}</div>` : ''}
+  </div>`;
+  setStatus('import-status', '완료');
+  document.getElementById('preview-card').style.display = 'none';
+  if (ok > 0) setTimeout(() => { window.location.href = 'order-list.html'; }, 2000);
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  document.getElementById('paste-area').value = '';
+  document.getElementById('preview-card').style.display = 'none';
+  document.getElementById('result-wrap').style.display = 'none';
+  rows = [];
+  setStatus('parse-status', '');
+  setStatus('import-status', '');
+});
+</script>
+</body>
+</html>

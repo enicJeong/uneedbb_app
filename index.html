@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>bb — 블루베리</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { max-width: 780px; }
+
+  /* 헤더 */
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .header h1 { font-size: 22px; font-weight: 800; color: #1e3a5f; }
+  .header .date { font-size: 13px; color: #9ca3af; }
+
+  /* 요약 카드 */
+  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  .summary-grid .summary-card .num { font-size: 28px; font-weight: 800; color: #1e3a5f; }
+  .summary-grid .summary-card .sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+  .summary-grid .summary-card.alert .num { color: #ef4444; }
+  .summary-grid .summary-card.warn  .num { color: #f59e0b; }
+  .summary-grid .summary-card.ok    .num { color: #16a34a; }
+
+  /* 진행 현황 바 */
+  .progress-card h2 { font-size: 13px; font-weight: 700; color: #6b7280; margin-bottom: 12px; }
+  .progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .progress-row .p-label { width: 40px; font-size: 12px; color: #6b7280; font-weight: 600; flex-shrink: 0; }
+  .progress-bar-wrap { flex: 1; background: #f3f4f6; border-radius: 99px; height: 10px; overflow: hidden; }
+  .progress-bar { height: 100%; border-radius: 99px; transition: width .4s ease; }
+  .bar-접수 { background: #cbd5e1; }
+  .bar-출력 { background: #fbbf24; }
+  .bar-송장 { background: #60a5fa; }
+  .bar-발송 { background: #34d399; }
+  .progress-row .p-count { width: 28px; font-size: 13px; font-weight: 700; text-align: right; flex-shrink: 0; }
+
+  /* 빠른 액션 */
+  .action-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .action-btn { flex: 1; padding: 12px 8px; border-radius: 10px; border: none; font-size: 13px;
+    font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .action-btn .icon { font-size: 22px; }
+  .action-btn.primary { background: #2563eb; color: #fff; }
+  .action-btn.secondary { background: #fff; color: #374151; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+
+  /* 섹션 헤더 */
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .section-header h2 { font-size: 15px; font-weight: 700; }
+  .section-header a { font-size: 13px; color: #2563eb; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <h1>🫐 bb</h1>
+    <div class="date" id="today-date"></div>
+  </div>
+
+  <!-- 요약 카드 -->
+  <div class="summary-grid">
+    <div class="summary-card card warn">
+      <div class="label">미발송</div>
+      <div class="num" id="cnt-pending">-</div>
+      <div class="sub" id="sub-pending"></div>
+    </div>
+    <div class="summary-card card alert">
+      <div class="label">미수금</div>
+      <div class="num" id="cnt-unpaid">-</div>
+      <div class="sub" id="sub-unpaid"></div>
+    </div>
+    <div class="summary-card card ok">
+      <div class="label">오늘 발송</div>
+      <div class="num" id="cnt-today-sent">-</div>
+      <div class="sub">건</div>
+    </div>
+    <div class="summary-card card">
+      <div class="label">전체 주문</div>
+      <div class="num" id="cnt-total">-</div>
+      <div class="sub">건</div>
+    </div>
+  </div>
+
+  <!-- 진행 현황 바 -->
+  <div class="card progress-card" style="margin-bottom:14px">
+    <h2>진행 현황</h2>
+    <div class="progress-row">
+      <div class="p-label">접수</div>
+      <div class="progress-bar-wrap"><div class="progress-bar bar-접수" id="bar-접수" style="width:0%"></div></div>
+      <div class="p-count" id="pc-접수">0</div>
+    </div>
+    <div class="progress-row">
+      <div class="p-label">출력</div>
+      <div class="progress-bar-wrap"><div class="progress-bar bar-출력" id="bar-출력" style="width:0%"></div></div>
+      <div class="p-count" id="pc-출력">0</div>
+    </div>
+    <div class="progress-row">
+      <div class="p-label">송장</div>
+      <div class="progress-bar-wrap"><div class="progress-bar bar-송장" id="bar-송장" style="width:0%"></div></div>
+      <div class="p-count" id="pc-송장">0</div>
+    </div>
+    <div class="progress-row">
+      <div class="p-label">발송</div>
+      <div class="progress-bar-wrap"><div class="progress-bar bar-발송" id="bar-발송" style="width:0%"></div></div>
+      <div class="p-count" id="pc-발송">0</div>
+    </div>
+  </div>
+
+  <!-- 빠른 액션 -->
+  <div class="action-row">
+    <button class="action-btn primary" onclick="location.href='order-new.html'">
+      <span class="icon">➕</span>주문 입력
+    </button>
+    <button class="action-btn secondary" onclick="location.href='customers.html'">
+      <span class="icon">👥</span>고객 DB
+    </button>
+    <button class="action-btn secondary" onclick="location.href='order-list.html'">
+      <span class="icon">📋</span>전체 목록
+    </button>
+    <button class="action-btn secondary" onclick="location.href='order-bulk.html'">
+      <span class="icon">📥</span>일괄 입력
+    </button>
+  </div>
+
+  <!-- 주문 목록 -->
+  <div class="section-header">
+    <h2>주문 목록</h2>
+    <a href="order-list.html">전체 보기 →</a>
+  </div>
+
+  <div class="filter-row">
+    <button class="filter-btn active" data-filter="">전체</button>
+    <button class="filter-btn" data-filter="접수">접수</button>
+    <button class="filter-btn" data-filter="출력">출력</button>
+    <button class="filter-btn" data-filter="송장">송장</button>
+    <button class="filter-btn" data-filter="발송">발송</button>
+    <button class="filter-btn" data-filter="__미수">미수</button>
+  </div>
+
+  <div id="order-list"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script src="nav.js"></script>
+<script>
+const API = BB_CONFIG.API;
+
+let allOrders = [];
+let currentFilter = '';
+
+const now = new Date();
+document.getElementById('today-date').textContent =
+  now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+const todayPrefix = now.toISOString().slice(0, 10);
+
+async function loadOrders() {
+  const res = await fetch(`${API}/api/orders`);
+  allOrders = await res.json();
+  updateSummary();
+  renderOrders();
+}
+
+function updateSummary() {
+  const pending   = allOrders.filter(o => ['접수','출력','송장'].includes(o.status));
+  const unpaid    = allOrders.filter(o => o.payment_status === '미수');
+  const todaySent = allOrders.filter(o => o.status === '발송' && (o.updated_at || '').startsWith(todayPrefix));
+
+  document.getElementById('cnt-pending').textContent = pending.length;
+  document.getElementById('sub-pending').textContent =
+    `접수 ${allOrders.filter(o=>o.status==='접수').length} / 출력 ${allOrders.filter(o=>o.status==='출력').length} / 송장 ${allOrders.filter(o=>o.status==='송장').length}`;
+  document.getElementById('cnt-unpaid').textContent = unpaid.length;
+  document.getElementById('sub-unpaid').textContent =
+    unpaid.reduce((s, o) => s + o.total_amount, 0).toLocaleString() + '원';
+  document.getElementById('cnt-today-sent').textContent = todaySent.length;
+  document.getElementById('cnt-total').textContent = allOrders.length;
+
+  const total = allOrders.length || 1;
+  ['접수','출력','송장','발송'].forEach(s => {
+    const cnt = allOrders.filter(o => o.status === s).length;
+    document.getElementById('bar-' + s).style.width = (cnt / total * 100) + '%';
+    document.getElementById('pc-' + s).textContent = cnt;
+  });
+}
+
+function renderOrders() {
+  const list = document.getElementById('order-list');
+  let filtered;
+  if (currentFilter === '__미수') filtered = allOrders.filter(o => o.payment_status === '미수');
+  else if (currentFilter) filtered = allOrders.filter(o => o.status === currentFilter);
+  else filtered = allOrders;
+
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">해당하는 주문이 없습니다</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  filtered.forEach(o => {
+    const card = document.createElement('div');
+    card.className = `order-card status-${o.status}`;
+    const recipientText = o.recipient_name
+      ? `<span class="recipient">→ ${o.recipient_name}</span>` : '';
+    const priorityClass = o.priority <= 2 ? ' high' : '';
+    const date = (o.created_at || '').slice(0, 10);
+    card.innerHTML = `
+      <div class="order-top">
+        <span class="order-id">${o.order_no || '#' + o.id} · ${date}</span>
+        <div class="badges">
+          <span class="badge badge-p${priorityClass}">P${o.priority}</span>
+          <span class="badge badge-${o.status}">${o.status}</span>
+          <span class="badge badge-${o.payment_status}">${o.payment_status}</span>
+        </div>
+      </div>
+      <div class="order-names">${o.orderer_name}${recipientText}</div>
+      <div class="order-info">
+        <span>${o.delivery_type}</span>
+        ${o.address ? `<span>${o.address}</span>` : ''}
+        <span class="order-amount">${o.total_amount.toLocaleString()}원</span>
+      </div>
+      ${o.memo ? `<div class="order-memo">${o.memo}</div>` : ''}`;
+    card.addEventListener('click', () => { window.location.href = `order-detail.html?id=${o.id}`; });
+    list.appendChild(card);
+  });
+}
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    renderOrders();
+  });
+});
+
+loadOrders();
+</script>
+</body>
+</html>

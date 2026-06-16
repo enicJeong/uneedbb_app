@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>고객 import — bb</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+  .wrap { max-width: 900px; }
+  .google-status { font-size: 12px; padding: 4px 10px; border-radius: 99px;
+    background: #f3f4f6; color: #6b7280; }
+  .google-status.connected { background: #d1fae5; color: #065f46; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #f3f4f6; padding: 8px 10px; text-align: left;
+    border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; }
+  td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; }
+  #preview-wrap { overflow-x: auto; margin-top: 12px; }
+  .top { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <button class="btn-back" onclick="history.back()">←</button>
+    <h1 style="font-size:20px;font-weight:700">🔗 구글 주소록 import</h1>
+  </div>
+
+  <!-- STEP 1: Google 인증 -->
+  <div class="card">
+    <h2>① Google 계정 인증</h2>
+    <div class="gap">
+      <button class="btn btn-primary" id="btn-auth">Google 로그인</button>
+      <span class="google-status" id="auth-status">미연결</span>
+    </div>
+  </div>
+
+  <!-- STEP 2: 연락처 조회 -->
+  <div class="card">
+    <h2>② 구글 주소록 조회</h2>
+    <div class="gap">
+      <button class="btn btn-outline" id="btn-fetch" disabled>연락처 불러오기</button>
+      <span class="status-msg" id="fetch-status"></span>
+    </div>
+  </div>
+
+  <!-- STEP 3: 미리보기 -->
+  <div class="card" id="preview-card" style="display:none">
+    <h2>③ 미리보기 <span id="preview-count"></span></h2>
+    <div id="preview-wrap">
+      <table>
+        <thead>
+          <tr><th>이름</th><th>전화번호</th><th>메모</th></tr>
+        </thead>
+        <tbody id="preview-body"></tbody>
+      </table>
+    </div>
+    <div class="gap" style="margin-top:16px">
+      <button class="btn btn-success" id="btn-import">D1에 import</button>
+      <span class="status-msg" id="import-status"></span>
+    </div>
+  </div>
+
+  <!-- STEP 4: 결과 -->
+  <div id="result-wrap" style="display:none"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script src="nav.js"></script>
+<script>
+const API = BB_CONFIG.API;
+const GAPI_CLIENT_ID = '851570899218-b6q8qu5kje3kef3fd1ns3877sgodjhvf.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/contacts.readonly';
+
+let tokenClient, accessToken, contacts = [];
+
+// ── GIS 로드 ──────────────────────────────────────────
+window.onload = function () {
+  // 리다이렉트 후 토큰 파싱
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const token = hash.get('access_token');
+  if (token) {
+    accessToken = token;
+    history.replaceState(null, '', location.pathname);
+    document.getElementById('auth-status').textContent = '✅ 인증 완료';
+    document.getElementById('auth-status').classList.add('connected');
+    document.getElementById('btn-fetch').disabled = false;
+  }
+
+  const check = setInterval(() => {
+    if (typeof google === 'undefined' || !google.accounts) return;
+    clearInterval(check);
+    tokenClient = google.accounts.oauth2.initTokenClient({
+  client_id: GAPI_CLIENT_ID,
+  scope: SCOPES,
+  callback: (resp) => {
+    if (resp.error) return;
+    accessToken = resp.access_token;
+    document.getElementById('auth-status').textContent = '✅ 인증 완료';
+    document.getElementById('auth-status').classList.add('connected');
+    document.getElementById('btn-fetch').disabled = false;
+  }
+});
+  }, 100);
+};
+
+document.getElementById('btn-auth').addEventListener('click', () => {
+  if (!tokenClient) { showToast('잠시 후 다시 시도하세요'); return; }
+  tokenClient.requestAccessToken();
+});
+
+// ── 연락처 불러오기 ────────────────────────────────────
+document.getElementById('btn-fetch').addEventListener('click', async () => {
+  setStatus('fetch-status', '불러오는 중...');
+  contacts = [];
+  let pageToken = '';
+  try {
+    do {
+      const url = 'https://people.googleapis.com/v1/people/me/connections'
+        + '?personFields=names,phoneNumbers,biographies&pageSize=1000'
+        + (pageToken ? '&pageToken=' + pageToken : '');
+      const res = await fetch(url, {
+        headers: { Authorization: 'Bearer ' + accessToken }
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message);
+      for (const p of (data.connections || [])) {
+        const name = p.names?.[0]?.displayName || '';
+        const memo = p.biographies?.[0]?.value || '';
+        const resourceName = p.resourceName || '';
+        for (const ph of (p.phoneNumbers || [])) {
+          const phone = ph.value.replace(/[^0-9]/g, '');
+          if (phone) contacts.push({ name, phone, memo, google_resource_name: resourceName });
+        }
+      }
+      pageToken = data.nextPageToken || '';
+    } while (pageToken);
+
+    // 전화번호 중복 제거
+    const seen = new Set();
+    contacts = contacts.filter(c => {
+      if (seen.has(c.phone)) return false;
+      seen.add(c.phone);
+      return true;
+    });
+
+    setStatus('fetch-status', `✅ ${contacts.length}건 조회 완료`);
+    renderPreview();
+  } catch (e) {
+    setStatus('fetch-status', '오류: ' + e.message, true);
+  }
+});
+
+function renderPreview() {
+  const tbody = document.getElementById('preview-body');
+  tbody.innerHTML = '';
+  contacts.forEach(c => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${c.name}</td><td>${c.phone}</td><td>${c.memo}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('preview-count').textContent = `(${contacts.length}건)`;
+  document.getElementById('preview-card').style.display = '';
+}
+
+// ── D1 import ─────────────────────────────────────────
+document.getElementById('btn-import').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-import');
+  btn.disabled = true;
+  setStatus('import-status', 'import 중...');
+
+  try {
+    const CHUNK = 500;
+    let totalInserted = 0, totalSkipped = 0, allFailed = [];
+
+    for (let i = 0; i < contacts.length; i += CHUNK) {
+      const chunk = contacts.slice(i, i + CHUNK);
+      const res = await fetch(`${API}/api/customers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(chunk)
+      });
+      const data = await res.json();
+      totalInserted += data.inserted || 0;
+      totalSkipped  += data.skipped  || 0;
+      allFailed = allFailed.concat(data.failed || []);
+      setStatus('import-status', `처리 중... ${Math.min(i + CHUNK, contacts.length)}/${contacts.length}`);
+    }
+
+    const box = document.getElementById('result-wrap');
+    box.style.display = '';
+    box.innerHTML = `<div class="result-box result-ok">
+      ✅ import 완료<br>
+      등록/업데이트: <strong>${totalInserted}건</strong>
+      &nbsp;|&nbsp; 건너뜀: <strong>${totalSkipped}건</strong>
+      ${allFailed.length ? `<div class="err-list">실패: ${allFailed.map(f => f.phone).join(', ')}</div>` : ''}
+    </div>`;
+    setStatus('import-status', '완료');
+    document.getElementById('preview-card').style.display = 'none';
+
+  } catch (e) {
+    setStatus('import-status', '오류: ' + e.message, true);
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

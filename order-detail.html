@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주문 상세 — bb</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #f9fafb; padding: 7px 10px; text-align: left; font-size: 12px; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
+  td { padding: 8px 10px; border-bottom: 1px solid #f3f4f6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <button class="btn-back" onclick="history.back()">←</button>
+    <h1 id="page-title">주문 상세</h1>
+  </div>
+
+  <!-- 상태 흐름 -->
+  <div class="card">
+    <h2>진행 상태</h2>
+    <div class="status-flow" id="status-flow"></div>
+    <div class="btn-row" style="margin-top:16px" id="status-btns"></div>
+  </div>
+
+  <!-- 주문 정보 -->
+  <div class="card">
+    <h2>주문 정보</h2>
+    <div class="info-row"><span class="info-label">주문번호</span><span class="info-value" id="d-order-no"></span></div>
+    <div class="info-row"><span class="info-label">접수일시</span><span class="info-value" id="d-date"></span></div>
+    <div class="info-row"><span class="info-label">주문자</span><span class="info-value" id="d-orderer"></span></div>
+    <div class="info-row"><span class="info-label">수령자</span><span class="info-value" id="d-recipient"></span></div>
+    <div class="info-row"><span class="info-label">배송방법</span><span class="info-value" id="d-delivery"></span></div>
+    <div class="info-row"><span class="info-label">주소</span><span class="info-value" id="d-address"></span></div>
+    <div class="info-row"><span class="info-label">우선순위</span><span class="info-value" id="d-priority"></span></div>
+    <div class="info-row"><span class="info-label">메모</span><span class="info-value" id="d-memo"></span></div>
+  </div>
+
+  <!-- 상품 -->
+  <div class="card">
+    <h2>상품</h2>
+    <table>
+      <thead><tr><th>상품</th><th>단가</th><th>수량</th><th>소계</th></tr></thead>
+      <tbody id="d-items"></tbody>
+    </table>
+    <div class="amount-box" style="margin-top:12px">
+      <div class="amount-row"><span>상품금액</span><span id="d-sum-items"></span></div>
+      <div class="amount-row"><span>택배비</span><span id="d-shipping"></span></div>
+      <div class="amount-row total"><span>청구금액</span><span id="d-total"></span></div>
+    </div>
+  </div>
+
+  <!-- 송장번호 -->
+  <div class="card" id="tracking-card">
+    <h2>송장번호</h2>
+    <div id="tracking-list"></div>
+    <div class="tracking-add">
+      <input type="text" id="tracking-input" placeholder="송장번호 입력">
+      <button class="btn btn-primary" id="btn-add-tracking">추가</button>
+    </div>
+  </div>
+
+  <!-- 수금 -->
+  <div class="card">
+    <h2>수금 상태</h2>
+    <div class="info-row">
+      <span class="info-label">수금 상태</span>
+      <span class="info-value" id="d-payment-status"></span>
+    </div>
+    <div class="btn-row" style="margin-top:12px" id="payment-btns"></div>
+  </div>
+
+  <!-- 액션 -->
+  <div class="card">
+    <h2>액션</h2>
+    <div class="btn-row">
+      <button class="btn btn-outline" id="btn-print">🖨 주문서 출력</button>
+      <button class="btn btn-outline" id="btn-edit">✏️ 수정</button>
+    </div>
+  </div>
+</div>
+
+<!-- 출력 영역 -->
+<div id="print-area" style="display:none">
+  <div class="print-box">
+    <div class="print-title">🫐 블루베리 주문서</div>
+    <div id="print-content"></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script src="nav.js"></script>
+<script>
+const API = BB_CONFIG.API;
+const STATUSES = ['접수', '출력', '송장', '발송'];
+const params = new URLSearchParams(location.search);
+const orderId = params.get('id');
+let order = null;
+
+async function loadOrder() {
+  const [orderRes, trackingRes] = await Promise.all([
+    fetch(`${API}/api/orders/${orderId}`),
+    fetch(`${API}/api/orders/${orderId}/tracking`)
+  ]);
+  order = await orderRes.json();
+  order.trackings = await trackingRes.json();
+  render();
+}
+
+function render() {
+  document.getElementById('page-title').textContent = order.order_no || `주문 #${order.id}`;
+
+  // 상태 흐름
+  const flow = document.getElementById('status-flow');
+  flow.innerHTML = '';
+  const idx = STATUSES.indexOf(order.status);
+  STATUSES.forEach((s, i) => {
+    const isDone = i < idx;
+    const isCurrent = i === idx;
+    const step = document.createElement('div');
+    step.className = 'step';
+    step.innerHTML = `
+      <div class="step-dot ${isDone ? 'done' : isCurrent ? 'current' : ''}">
+        ${isDone ? '✓' : i + 1}
+      </div>
+      <div class="step-label ${isCurrent ? 'current' : ''}">${s}</div>`;
+    flow.appendChild(step);
+    if (i < STATUSES.length - 1) {
+      const arrow = document.createElement('div');
+      arrow.className = 'step-arrow';
+      arrow.textContent = '›';
+      flow.appendChild(arrow);
+    }
+  });
+
+  // 상태 변경 버튼
+  const statusBtns = document.getElementById('status-btns');
+  statusBtns.innerHTML = '';
+  if (idx < STATUSES.length - 1) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-primary';
+    btn.textContent = `→ ${STATUSES[idx + 1]} 처리`;
+    btn.addEventListener('click', () => updateStatus(STATUSES[idx + 1]));
+    statusBtns.appendChild(btn);
+  }
+  if (idx > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline';
+    btn.textContent = `← ${STATUSES[idx - 1]}로 되돌리기`;
+    btn.addEventListener('click', () => updateStatus(STATUSES[idx - 1]));
+    statusBtns.appendChild(btn);
+  }
+
+  // 주문 정보
+  document.getElementById('d-order-no').textContent   = order.order_no || '-';
+  document.getElementById('d-date').textContent       = order.created_at || '-';
+  document.getElementById('d-orderer').textContent    = `${order.orderer_name} ${order.orderer_phone}`;
+  document.getElementById('d-recipient').textContent  = order.recipient_name
+    ? `${order.recipient_name} ${order.recipient_phone}` : '주문자와 동일';
+  document.getElementById('d-delivery').textContent   = order.delivery_type;
+  document.getElementById('d-address').textContent    = order.address || '-';
+  document.getElementById('d-priority').textContent   = 'P' + order.priority;
+  document.getElementById('d-memo').textContent       = order.memo || '-';
+
+  // 상품
+  const tbody = document.getElementById('d-items');
+  tbody.innerHTML = '';
+  let itemSum = 0;
+  (order.items || []).forEach(item => {
+    const sub = item.unit_price * item.qty;
+    itemSum += sub;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${item.product}</td>
+      <td>${item.unit_price.toLocaleString()}원</td>
+      <td>${item.qty}kg</td>
+      <td>${sub.toLocaleString()}원</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('d-sum-items').textContent = itemSum.toLocaleString() + '원';
+  document.getElementById('d-shipping').textContent  = order.shipping_fee.toLocaleString() + '원';
+  document.getElementById('d-total').textContent     = order.total_amount.toLocaleString() + '원';
+
+  // 송장번호
+  const trackingList = document.getElementById('tracking-list');
+  trackingList.innerHTML = '';
+  if (!order.trackings?.length) {
+    trackingList.innerHTML = '<div style="color:#9ca3af;font-size:13px;margin-bottom:4px">등록된 송장번호 없음</div>';
+  } else {
+    order.trackings.forEach(t => {
+      const div = document.createElement('div');
+      div.className = 'tracking-item';
+      div.innerHTML = `
+        <span class="t-no">${t.tracking_number}</span>
+        <button style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:16px" data-tid="${t.id}">🗑</button>`;
+      div.querySelector('[data-tid]').addEventListener('click', async () => {
+        await fetch(`${API}/api/orders/${orderId}/tracking/${t.id}`, { method: 'DELETE' });
+        showToast('송장번호 삭제됨');
+        await loadOrder();
+      });
+      trackingList.appendChild(div);
+    });
+  }
+  document.getElementById('tracking-card').style.display =
+    order.delivery_type === '택배' ? '' : 'none';
+
+  // 수금
+  document.getElementById('d-payment-status').innerHTML =
+    `<span class="badge badge-${order.payment_status}">${order.payment_status}</span>`;
+  const payBtns = document.getElementById('payment-btns');
+  payBtns.innerHTML = '';
+  ['미수', '부분수금', '수금'].forEach(s => {
+    if (s === order.payment_status) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline';
+    btn.textContent = s + ' 처리';
+    btn.addEventListener('click', () => updatePayment(s));
+    payBtns.appendChild(btn);
+  });
+}
+
+async function updateStatus(status) {
+  await fetch(`${API}/api/orders/${orderId}/status`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
+  });
+  showToast(`✅ ${status} 처리 완료`);
+  await loadOrder();
+}
+
+async function updatePayment(payment_status) {
+  await fetch(`${API}/api/orders/${orderId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      order_no:       order.order_no,
+      orderer_id:     order.orderer_id,
+      recipient_id:   order.recipient_id,
+      address_id:     order.address_id,
+      delivery_type:  order.delivery_type,
+      priority:       order.priority,
+      memo:           order.memo,
+      items:          order.items,
+      shipping_fee:   order.shipping_fee,
+      status:         order.status,
+      payment_status
+    })
+  });
+  showToast(`✅ ${payment_status} 처리 완료`);
+  await loadOrder();
+}
+
+document.getElementById('btn-add-tracking').addEventListener('click', async () => {
+  const val = document.getElementById('tracking-input').value.trim();
+  if (!val) { showToast('송장번호를 입력하세요'); return; }
+  await fetch(`${API}/api/orders/${orderId}/tracking`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tracking_number: val })
+  });
+  document.getElementById('tracking-input').value = '';
+  showToast('✅ 송장번호 추가됨');
+  await loadOrder();
+});
+
+document.getElementById('btn-print').addEventListener('click', () => {
+  const items = (order.items || []).map(i =>
+    `<div class="print-row"><span class="pl">${i.product} × ${i.qty}</span><span class="pv">${(i.unit_price * i.qty).toLocaleString()}원</span></div>`
+  ).join('');
+  const trackings = order.trackings?.length
+    ? `<div class="print-tracking">송장번호: ${order.trackings.map(t => t.tracking_number).join(', ')}</div>`
+    : '';
+  document.getElementById('print-content').innerHTML = `
+    <div class="print-row"><span class="pl">주문번호</span><span class="pv">${order.order_no || '#' + order.id}</span></div>
+    <div class="print-row"><span class="pl">주문자</span><span class="pv">${order.orderer_name} ${order.orderer_phone}</span></div>
+    <div class="print-row"><span class="pl">수령자</span><span class="pv">${order.recipient_name || order.orderer_name} ${order.recipient_phone || order.orderer_phone}</span></div>
+    <div class="print-row"><span class="pl">배송방법</span><span class="pv">${order.delivery_type}</span></div>
+    ${order.address ? `<div class="print-row"><span class="pl">주소</span><span class="pv">${order.address}</span></div>` : ''}
+    <div class="print-items">${items}</div>
+    <div class="print-row"><span class="pl">택배비</span><span class="pv">${order.shipping_fee.toLocaleString()}원</span></div>
+    <div class="print-total">청구금액 ${order.total_amount.toLocaleString()}원</div>
+    ${order.memo ? `<div class="print-memo">📝 ${order.memo}</div>` : ''}
+    ${trackings}`;
+  document.getElementById('print-area').style.display = '';
+  window.print();
+  document.getElementById('print-area').style.display = 'none';
+});
+
+document.getElementById('btn-edit').addEventListener('click', () => {
+  window.location.href = `order-edit.html?id=${orderId}`;
+});
+
+loadOrder();
+</script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주소 import — bb</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { max-width: 780px; }
+  textarea { width: 100%; height: 180px; padding: 10px 12px; border: 1px solid #d1d5db;
+    border-radius: 8px; font-size: 13px; font-family: monospace; resize: vertical; }
+  textarea:focus { outline: none; border-color: #2563eb; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #f3f4f6; padding: 8px 10px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; }
+  td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; }
+  .col-name { color: #9ca3af; font-size: 12px; }
+  #preview-wrap { overflow-x: auto; margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 style="font-size:20px;font-weight:700;margin-bottom:6px">📋 주소 일괄 import</h1>
+  <p class="desc" style="font-size:13px;color:#6b7280;margin-bottom:20px">엑셀에서 이름 / 전화번호 / 주소 열을 복사해서 붙여넣으세요. 전화번호 기준으로 DB 매칭합니다.</p>
+
+  <div class="card">
+    <h2>① 엑셀 데이터 붙여넣기</h2>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:8px">헤더 행 없이 데이터만 / 열 순서: 이름 → 전화번호 → 주소</p>
+    <textarea id="paste-area" placeholder="엑셀에서 복사 후 여기에 붙여넣기 (Ctrl+V)"></textarea>
+    <div class="gap" style="margin-top:10px">
+      <button class="btn btn-primary" id="btn-parse">파싱 &amp; 미리보기</button>
+      <button class="btn btn-outline" id="btn-clear">초기화</button>
+      <span class="status-msg" id="parse-status"></span>
+    </div>
+  </div>
+
+  <div class="card" id="preview-card" style="display:none">
+    <h2>② 미리보기 <span id="preview-count"></span></h2>
+    <div id="preview-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>입력 이름</th>
+            <th>전화번호</th>
+            <th>주소</th>
+            <th>처리</th>
+            <th>DB 이름 <span class="col-name">(전번 매칭)</span></th>
+          </tr>
+        </thead>
+        <tbody id="preview-body"></tbody>
+      </table>
+    </div>
+    <div class="gap" style="margin-top:16px">
+      <button class="btn btn-success" id="btn-import">DB에 저장</button>
+      <span class="status-msg" id="import-status"></span>
+    </div>
+  </div>
+
+  <div id="result-wrap" style="display:none"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script src="nav.js"></script>
+<script>
+const API = BB_CONFIG.API;
+
+let parsed = [];
+let previewed = [];
+
+document.getElementById('btn-parse').addEventListener('click', async () => {
+  const raw = document.getElementById('paste-area').value.trim();
+  if (!raw) { setStatus('parse-status', '데이터를 붙여넣으세요', true); return; }
+
+  parsed = [];
+  const lines = raw.split('\n');
+  for (const line of lines) {
+    const cols = line.split('\t').map(c => c.trim());
+    if (cols.length < 3) continue;
+    const inputName = cols[0];
+    const phone = cols[1].replace(/[^0-9]/g, '');
+    const address = cols[2];
+    if (!phone || !address) continue;
+    parsed.push({ inputName, phone, address });
+  }
+
+  if (!parsed.length) { setStatus('parse-status', '유효한 행이 없습니다. 열 순서(이름/전번/주소)를 확인하세요', true); return; }
+
+  setStatus('parse-status', `${parsed.length}행 파싱 완료, DB 조회 중...`);
+
+  previewed = [];
+  for (const row of parsed) {
+    const res = await fetch(`${API}/api/customers?q=${encodeURIComponent(row.phone)}`);
+    const data = await res.json();
+    const match = data.find(c => c.phone.replace(/[^0-9]/g, '') === row.phone);
+    if (match) {
+      previewed.push({ ...row, action: 'addr', dbName: match.name, customerId: match.id });
+    } else {
+      previewed.push({ ...row, action: 'new', dbName: null, customerId: null });
+    }
+  }
+
+  renderPreview();
+  setStatus('parse-status', '');
+});
+
+function renderPreview() {
+  const tbody = document.getElementById('preview-body');
+  tbody.innerHTML = '';
+  let newCount = 0, addrCount = 0;
+
+  previewed.forEach(row => {
+    if (row.action === 'new') newCount++;
+    else addrCount++;
+
+    const tr = document.createElement('tr');
+    const actionBadge = row.action === 'new'
+      ? '<span class="badge badge-new">신규등록</span>'
+      : '<span class="badge badge-ok">주소추가</span>';
+    const dbNameCell = row.dbName
+      ? `<strong>${row.dbName}</strong>`
+      : '<span style="color:#9ca3af">—</span>';
+
+    tr.innerHTML = `
+      <td>${row.inputName}</td>
+      <td>${row.phone}</td>
+      <td>${row.address}</td>
+      <td>${actionBadge}</td>
+      <td>${dbNameCell}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('preview-count').textContent =
+    `(총 ${previewed.length}건 — 신규 ${newCount}건 / 주소추가 ${addrCount}건)`;
+  document.getElementById('preview-card').style.display = '';
+}
+
+document.getElementById('btn-import').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-import');
+  btn.disabled = true;
+  setStatus('import-status', '저장 중...');
+
+  let newOk = 0, addrOk = 0, fail = [];
+
+  for (const row of previewed) {
+    try {
+      let customerId = row.customerId;
+
+      if (row.action === 'new') {
+        const res = await fetch(`${API}/api/customers`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: row.inputName, phone: row.phone, memo: '' })
+        });
+        const data = await res.json();
+        if (!data.id) throw new Error(data.error || '고객 등록 실패');
+        customerId = data.id;
+        newOk++;
+      }
+
+      const detailRes = await fetch(`${API}/api/customers/${customerId}`);
+      const detail = await detailRes.json();
+      const exists = (detail.addresses || []).some(a => a.address === row.address);
+      if (!exists) {
+        await fetch(`${API}/api/addresses`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customer_id: customerId, address: row.address, label: '', is_default: 0 })
+        });
+        if (row.action !== 'new') addrOk++;
+      }
+
+    } catch (e) {
+      fail.push(`${row.phone}: ${e.message}`);
+    }
+
+    setStatus('import-status', `처리 중... ${previewed.indexOf(row) + 1}/${previewed.length}`);
+  }
+
+  const box = document.getElementById('result-wrap');
+  box.style.display = '';
+  box.innerHTML = `<div class="result-box ${fail.length ? 'result-warn' : 'result-ok'}">
+    ✅ 완료<br>
+    신규 고객 등록: <strong>${newOk}건</strong><br>
+    주소 추가: <strong>${addrOk}건</strong><br>
+    ${fail.length ? '⚠️ 실패:<br>' + fail.map(f => `<span style="font-size:12px;color:#92400e">${f}</span>`).join('<br>') : ''}
+  </div>`;
+  setStatus('import-status', '완료');
+  document.getElementById('preview-card').style.display = 'none';
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  document.getElementById('paste-area').value = '';
+  document.getElementById('preview-card').style.display = 'none';
+  document.getElementById('result-wrap').style.display = 'none';
+  parsed = []; previewed = [];
+  setStatus('parse-status', '');
+});
+</script>
+</body>
+</html>

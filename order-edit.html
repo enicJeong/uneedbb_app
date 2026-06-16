@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주문 수정 — bb</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <button class="btn-back" onclick="history.back()">←</button>
+    <h1 id="page-title">주문 수정</h1>
+  </div>
+
+  <!-- 주문번호 -->
+  <div class="card">
+    <h2>주문번호</h2>
+    <div class="field">
+      <input type="text" id="order-no" placeholder="주문번호">
+      <div class="order-no-msg" id="order-no-msg"></div>
+    </div>
+  </div>
+
+  <!-- 주문자 -->
+  <div class="card">
+    <h2>주문자</h2>
+    <div class="field" id="orderer-search-wrap" style="display:none">
+      <div class="search-box">
+        <input type="text" id="orderer-input" placeholder="이름 또는 전화번호 검색" autocomplete="off">
+        <button class="search-btn" id="orderer-search-btn">🔍</button>
+        <div class="dropdown" id="orderer-dropdown" style="display:none"></div>
+      </div>
+    </div>
+    <div id="orderer-selected"></div>
+  </div>
+
+  <!-- 수령자 -->
+  <div class="card">
+    <h2>수령자</h2>
+    <div class="field">
+      <div class="toggle-row">
+        <button class="toggle-btn active" id="recip-same">주문자와 동일</button>
+        <button class="toggle-btn" id="recip-diff">다른 사람</button>
+      </div>
+    </div>
+    <div id="recipient-wrap" style="display:none">
+      <div class="field" id="recipient-search-field">
+        <div class="search-box">
+          <input type="text" id="recipient-input" placeholder="이름 또는 전화번호 검색" autocomplete="off">
+          <button class="search-btn" id="recipient-search-btn">🔍</button>
+          <div class="dropdown" id="recipient-dropdown" style="display:none"></div>
+        </div>
+      </div>
+      <div id="recipient-selected" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- 상품 -->
+  <div class="card">
+    <h2>상품</h2>
+    <table class="items-table">
+      <thead><tr><th>상품</th><th>단가</th><th>수량</th><th></th></tr></thead>
+      <tbody id="items-body"></tbody>
+    </table>
+    <button class="btn-add-dashed" id="btn-add-item">+ 상품 추가</button>
+  </div>
+
+  <!-- 배송 -->
+  <div class="card">
+    <h2>배송</h2>
+    <div class="field">
+      <label>배송 방법</label>
+      <div class="toggle-row">
+        <button class="toggle-btn active" data-delivery="택배">택배</button>
+        <button class="toggle-btn" data-delivery="현장수령">현장수령</button>
+        <button class="toggle-btn" data-delivery="배달">배달</button>
+      </div>
+    </div>
+    <div id="address-wrap">
+      <div class="field">
+        <label>배송 주소</label>
+        <div id="address-list"></div>
+        <div class="field" style="margin-top:8px">
+          <input type="text" id="new-address-input" placeholder="새 주소 직접 입력">
+          <button class="btn-add-dashed" id="btn-add-address" style="margin-top:6px">+ 이 주소로 등록</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 금액 -->
+  <div class="card">
+    <h2>청구금액</h2>
+    <div class="amount-box">
+      <div class="amount-row"><span>상품금액</span><span id="sum-items">0원</span></div>
+      <div class="amount-row">
+        <span>택배비</span>
+        <input type="number" id="shipping-fee" value="0" min="0" step="1000">
+      </div>
+      <div class="amount-row total"><span>청구금액</span><span id="sum-total">0원</span></div>
+    </div>
+  </div>
+
+  <!-- 기타 -->
+  <div class="card">
+    <h2>기타</h2>
+    <div class="field">
+      <label>우선순위</label>
+      <div class="priority-row">
+        <button class="priority-btn" data-p="1">1</button>
+        <button class="priority-btn" data-p="2">2</button>
+        <button class="priority-btn active" data-p="3">3</button>
+        <button class="priority-btn" data-p="4">4</button>
+        <button class="priority-btn" data-p="5">5</button>
+      </div>
+    </div>
+    <div class="field" style="margin-top:14px">
+      <label>메모</label>
+      <textarea id="memo" rows="2"></textarea>
+    </div>
+  </div>
+
+  <button class="btn-submit" id="btn-submit">수정 저장</button>
+</div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script src="nav.js"></script>
+<script>
+const API = BB_CONFIG.API;
+const PRODUCTS = BB_CONFIG.PRODUCTS;
+
+const params = new URLSearchParams(location.search);
+const orderId = params.get('id');
+
+let order = null;
+let orderer = null;
+let recipient = null;
+let recipientSame = true;
+let deliveryType = '택배';
+let selectedAddressId = null;
+let priority = 3;
+let items = [];
+
+// 주문번호 체커 (수정 시 자기 자신 제외)
+let orderNoChecker = null;
+
+async function loadOrder() {
+  const res = await fetch(`${API}/api/orders/${orderId}`);
+  order = await res.json();
+
+  document.getElementById('page-title').textContent = `주문 #${order.order_no || order.id} 수정`;
+
+  // 주문번호
+  document.getElementById('order-no').value = order.order_no || '';
+  orderNoChecker = setupOrderNoCheck('order-no', 'order-no-msg', orderId);
+  orderNoChecker.setValid(true);
+
+  // 주문자
+  orderer = { id: order.orderer_id, name: order.orderer_name, phone: order.orderer_phone };
+  renderSelectedCustomer('orderer-selected', orderer, () => {
+    orderer = null;
+    document.getElementById('orderer-search-wrap').style.display = '';
+    document.getElementById('orderer-selected').innerHTML = '';
+    document.getElementById('address-list').innerHTML = '';
+    selectedAddressId = null;
+  });
+
+  // 수령자
+  if (order.recipient_id) {
+    recipientSame = false;
+    recipient = { id: order.recipient_id, name: order.recipient_name, phone: order.recipient_phone };
+    document.getElementById('recip-same').classList.remove('active');
+    document.getElementById('recip-diff').classList.add('active');
+    document.getElementById('recipient-wrap').style.display = '';
+    document.getElementById('recipient-search-field').style.display = 'none';
+    renderSelectedCustomer('recipient-selected', recipient, () => {
+      recipient = null;
+      document.getElementById('recipient-search-field').style.display = '';
+      document.getElementById('recipient-selected').style.display = 'none';
+      if (orderer && deliveryType === '택배') {
+        loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
+      }
+    });
+  }
+
+  // 배송
+  deliveryType = order.delivery_type;
+  document.querySelectorAll('[data-delivery]').forEach(b => {
+    b.classList.toggle('active', b.dataset.delivery === deliveryType);
+  });
+  document.getElementById('address-wrap').style.display = deliveryType === '택배' ? '' : 'none';
+
+  // 주소
+  selectedAddressId = order.address_id;
+  if (deliveryType === '택배' && orderer) {
+    const res2 = await fetch(`${API}/api/customers/${orderer.id}`);
+    const data = await res2.json();
+    renderAddresses(data.addresses || [], null, (id) => { selectedAddressId = id || order.address_id; });
+    // 기존 선택 주소 유지
+    selectedAddressId = order.address_id;
+    document.querySelectorAll('.addr-item').forEach(el => {
+      el.classList.toggle('selected', +el.dataset.id === order.address_id);
+    });
+  }
+
+  // 상품
+  items = order.items.map(i => ({ product: i.product, unit_price: i.unit_price, qty: i.qty }));
+  renderItems(items, () => {
+    calcAmount(items);
+    autoShipping(items, deliveryType);
+  });
+
+  // 택배비
+  document.getElementById('shipping-fee').value = order.shipping_fee;
+  calcAmount(items);
+
+  // 우선순위
+  priority = order.priority;
+  document.querySelectorAll('.priority-btn').forEach(b => {
+    b.classList.toggle('active', +b.dataset.p === priority);
+  });
+
+  // 메모
+  document.getElementById('memo').value = order.memo || '';
+}
+
+// ── 주문자 검색 ───────────────────────────────────────
+setupSearch('orderer-input', 'orderer-search-btn', 'orderer-dropdown', null, async (c) => {
+  orderer = c;
+  document.getElementById('orderer-search-wrap').style.display = 'none';
+  renderSelectedCustomer('orderer-selected', c, () => {
+    orderer = null;
+    document.getElementById('orderer-search-wrap').style.display = '';
+    document.getElementById('orderer-selected').innerHTML = '';
+    document.getElementById('address-list').innerHTML = '';
+    selectedAddressId = null;
+  });
+  if (deliveryType === '택배') {
+    await loadAddresses(c.id, (id) => { selectedAddressId = id; });
+  }
+});
+
+// ── 수령자 검색 ───────────────────────────────────────
+setupSearch('recipient-input', 'recipient-search-btn', 'recipient-dropdown', null, async (c) => {
+  recipient = c;
+  document.getElementById('recipient-search-field').style.display = 'none';
+  renderSelectedCustomer('recipient-selected', c, () => {
+    recipient = null;
+    document.getElementById('recipient-search-field').style.display = '';
+    document.getElementById('recipient-selected').style.display = 'none';
+    if (orderer && deliveryType === '택배') {
+      loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
+    }
+  });
+  if (deliveryType === '택배') {
+    await loadAddresses(c.id, (id) => { selectedAddressId = id; });
+  }
+});
+
+// 수령자 토글
+document.getElementById('recip-same').addEventListener('click', () => {
+  recipientSame = true;
+  document.getElementById('recip-same').classList.add('active');
+  document.getElementById('recip-diff').classList.remove('active');
+  document.getElementById('recipient-wrap').style.display = 'none';
+  if (orderer && deliveryType === '택배') {
+    loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
+  }
+});
+document.getElementById('recip-diff').addEventListener('click', () => {
+  recipientSame = false;
+  document.getElementById('recip-diff').classList.add('active');
+  document.getElementById('recip-same').classList.remove('active');
+  document.getElementById('recipient-wrap').style.display = '';
+});
+
+// ── 주소 추가 ─────────────────────────────────────────
+document.getElementById('btn-add-address').addEventListener('click', async () => {
+  const val = document.getElementById('new-address-input').value.trim();
+  if (!val || !orderer) { showToast('주문자를 먼저 선택하세요'); return; }
+  await fetch(`${API}/api/addresses`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customer_id: orderer.id, address: val, is_default: 0 })
+  });
+  document.getElementById('new-address-input').value = '';
+  await loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
+  showToast('주소 추가됨');
+});
+
+// ── 배송방법 ──────────────────────────────────────────
+document.querySelectorAll('[data-delivery]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-delivery]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    deliveryType = btn.dataset.delivery;
+    document.getElementById('address-wrap').style.display = deliveryType === '택배' ? '' : 'none';
+    autoShipping(items, deliveryType);
+  });
+});
+
+// ── 상품 ──────────────────────────────────────────────
+document.getElementById('btn-add-item').addEventListener('click', () => {
+  items.push({ product: PRODUCTS[0].name, unit_price: PRODUCTS[0].price, qty: 1 });
+  renderItems(items, () => {
+    calcAmount(items);
+    autoShipping(items, deliveryType);
+  });
+});
+
+document.getElementById('shipping-fee').addEventListener('input', () => calcAmount(items));
+
+// ── 우선순위 ──────────────────────────────────────────
+document.querySelectorAll('.priority-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.priority-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    priority = +btn.dataset.p;
+  });
+});
+
+// ── 저장 ──────────────────────────────────────────────
+document.getElementById('btn-submit').addEventListener('click', async () => {
+  const orderNo = document.getElementById('order-no').value.trim();
+  if (!orderNo)    { showToast('주문번호를 입력하세요'); return; }
+  if (!orderNoChecker.isValid()) { showToast('⚠️ 중복된 주문번호입니다'); return; }
+  if (!orderer)    { showToast('주문자를 선택하세요'); return; }
+  if (!recipientSame && !recipient) { showToast('수령자를 선택하세요'); return; }
+  if (!items.length) { showToast('상품을 추가하세요'); return; }
+  if (deliveryType === '택배' && !selectedAddressId) { showToast('배송 주소를 선택하세요'); return; }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = '저장 중...';
+
+  const body = {
+    order_no:       orderNo,
+    orderer_id:     orderer.id,
+    recipient_id:   recipientSame ? null : recipient?.id,
+    address_id:     selectedAddressId,
+    delivery_type:  deliveryType,
+    priority,
+    memo:           document.getElementById('memo').value,
+    items,
+    shipping_fee:   +document.getElementById('shipping-fee').value || 0,
+    status:         order.status,
+    payment_status: order.payment_status,
+  };
+
+  try {
+    const res = await fetch(`${API}/api/orders/${orderId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('✅ 수정 완료');
+      setTimeout(() => { window.location.href = `order-detail.html?id=${orderId}`; }, 1000);
+    } else {
+      showToast('오류: ' + (data.error || '알 수 없는 오류'));
+      btn.disabled = false;
+      btn.textContent = '수정 저장';
+    }
+  } catch (e) {
+    showToast('오류: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '수정 저장';
+  }
+});
+
+loadOrder();
+</script>
+</body>
+</html>

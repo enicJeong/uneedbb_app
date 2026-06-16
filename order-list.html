@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주문 목록 — bb</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .wrap { max-width: 1200px; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+  /* 데스크탑 테이블 */
+  .desktop-table { display: none; }
+  @media (min-width: 768px) {
+    .mobile-list   { display: none; }
+    .desktop-table { display: block; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1 style="font-size:20px;font-weight:700">📋 주문 목록</h1>
+    <a href="order-new.html"><button class="btn btn-primary">+ 새 주문</button></a>
+  </div>
+
+  <div class="summary">
+    <div class="summary-card"><div class="num" id="cnt-접수">-</div><div class="label">접수</div></div>
+    <div class="summary-card"><div class="num" id="cnt-출력">-</div><div class="label">출력</div></div>
+    <div class="summary-card"><div class="num" id="cnt-송장">-</div><div class="label">송장</div></div>
+    <div class="summary-card"><div class="num" id="cnt-발송">-</div><div class="label">발송</div></div>
+    <div class="summary-card"><div class="num" id="cnt-미수" style="color:#ef4444">-</div><div class="label">미수</div></div>
+  </div>
+
+  <div class="filter-row">
+    <button class="filter-btn active" data-filter="">전체</button>
+    <button class="filter-btn" data-filter="접수">접수</button>
+    <button class="filter-btn" data-filter="출력">출력</button>
+    <button class="filter-btn" data-filter="송장">송장</button>
+    <button class="filter-btn" data-filter="발송">발송</button>
+    <button class="filter-btn" data-filter="__미수">미수</button>
+  </div>
+
+  <!-- 모바일 카드 -->
+  <div class="mobile-list" id="mobile-list"></div>
+
+  <!-- 데스크탑 테이블 -->
+  <div class="desktop-table">
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>주문번호</th>
+          <th>접수일</th>
+          <th>P</th>
+          <th>주문자</th>
+          <th>수령자</th>
+          <th>배송</th>
+          <th>주소</th>
+          <th>청구금액</th>
+          <th>진행</th>
+          <th>수금</th>
+          <th>메모</th>
+        </tr>
+      </thead>
+      <tbody id="desktop-tbody"></tbody>
+    </table>
+  </div>
+
+  <div id="empty-msg" style="display:none" class="empty">해당하는 주문이 없습니다</div>
+</div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script src="nav.js"></script>
+<script>
+const API = BB_CONFIG.API;
+let allOrders = [];
+let currentFilter = '';
+
+async function loadOrders() {
+  const res = await fetch(`${API}/api/orders`);
+  allOrders = await res.json();
+  updateSummary();
+  renderOrders();
+}
+
+function updateSummary() {
+  ['접수','출력','송장','발송'].forEach(s => {
+    document.getElementById('cnt-' + s).textContent = allOrders.filter(o => o.status === s).length;
+  });
+  document.getElementById('cnt-미수').textContent = allOrders.filter(o => o.payment_status === '미수').length;
+}
+
+function getFiltered() {
+  if (currentFilter === '__미수') return allOrders.filter(o => o.payment_status === '미수');
+  if (currentFilter) return allOrders.filter(o => o.status === currentFilter);
+  return allOrders;
+}
+
+function renderOrders() {
+  const filtered = getFiltered();
+  const empty = document.getElementById('empty-msg');
+
+  if (!filtered.length) {
+    document.getElementById('mobile-list').innerHTML = '';
+    document.getElementById('desktop-tbody').innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  // ── 모바일 카드 ──
+  const mobileList = document.getElementById('mobile-list');
+  mobileList.innerHTML = '';
+  filtered.forEach(o => {
+    const card = document.createElement('div');
+    card.className = `order-card status-${o.status}`;
+    const recipientText = o.recipient_name
+      ? `<span class="recipient">→ ${o.recipient_name}</span>` : '';
+    const priorityClass = o.priority <= 2 ? ' high' : '';
+    const date = (o.created_at || '').slice(0, 10);
+    card.innerHTML = `
+      <div class="order-top">
+        <span class="order-id">${o.order_no || '#' + o.id} · ${date}</span>
+        <div class="badges">
+          <span class="badge badge-p${priorityClass}">P${o.priority}</span>
+          <span class="badge badge-${o.status}">${o.status}</span>
+          <span class="badge badge-${o.payment_status}">${o.payment_status}</span>
+        </div>
+      </div>
+      <div class="order-names">${o.orderer_name}${recipientText}</div>
+      <div class="order-info">
+        <span class="badge badge-${o.delivery_type}">${o.delivery_type}</span>
+        ${o.address ? `<span>${o.address}</span>` : ''}
+        <span class="order-amount">${o.total_amount.toLocaleString()}원</span>
+      </div>
+      ${o.memo ? `<div class="order-memo">${o.memo}</div>` : ''}`;
+    card.addEventListener('click', () => { window.location.href = `order-detail.html?id=${o.id}`; });
+    mobileList.appendChild(card);
+  });
+
+  // ── 데스크탑 테이블 ──
+  const tbody = document.getElementById('desktop-tbody');
+  tbody.innerHTML = '';
+  filtered.forEach(o => {
+    const date = (o.created_at || '').slice(0, 10);
+    const priorityClass = o.priority <= 2 ? ' high' : '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="order-no">${o.order_no || '#' + o.id}</td>
+      <td style="color:#9ca3af;white-space:nowrap">${date}</td>
+      <td><span class="badge badge-p${priorityClass}">P${o.priority}</span></td>
+      <td class="names">
+        ${o.orderer_name}
+        <div style="font-size:11px;color:#9ca3af">${o.orderer_phone || ''}</div>
+      </td>
+      <td class="names">
+        ${o.recipient_name
+          ? `${o.recipient_name}<div class="recip">${o.recipient_phone || ''}</div>`
+          : '<span style="color:#d1d5db">—</span>'}
+      </td>
+      <td><span class="badge badge-${o.delivery_type}">${o.delivery_type}</span></td>
+      <td class="addr-cell">${o.address || '-'}</td>
+      <td class="amount">${o.total_amount.toLocaleString()}원</td>
+      <td><span class="badge badge-${o.status}">${o.status}</span></td>
+      <td><span class="badge badge-${o.payment_status}">${o.payment_status}</span></td>
+      <td class="memo-cell">${o.memo || ''}</td>`;
+    tr.addEventListener('click', () => { window.location.href = `order-detail.html?id=${o.id}`; });
+    tbody.appendChild(tr);
+  });
+}
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = btn.dataset.filter;
+    renderOrders();
+  });
+});
+
+loadOrders();
+</script>
+</body>
+</html>

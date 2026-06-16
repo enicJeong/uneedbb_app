@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>고객 DB — bb</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://accounts.google.com/gsi/client" async></script>
+<style>
+  .top-btns { display: flex; gap: 8px; }
+  .btn-google { padding: 8px 14px; border-radius: 7px; background: #fff; color: #374151;
+    border: 1px solid #d1d5db; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .btn-new { padding: 8px 16px; border-radius: 7px; background: #2563eb; color: #fff;
+    border: none; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .google-status { font-size: 12px; padding: 4px 10px; border-radius: 99px;
+    background: #f3f4f6; color: #6b7280; }
+  .google-status.connected { background: #d1fae5; color: #065f46; }
+  .status-bar { margin-bottom: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .search-wrap { position: relative; margin-bottom: 14px; }
+  .search-wrap input { width: 100%; padding: 10px 40px 10px 14px; border: 1px solid #d1d5db;
+    border-radius: 9px; font-size: 14px; background: #fff; }
+  .search-wrap input:focus { outline: none; border-color: #2563eb; }
+  .search-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+  .count { font-size: 13px; color: #6b7280; margin-bottom: 10px; }
+  .addr-item { display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 12px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 6px; }
+  .addr-item .addr-text { font-size: 13px; font-weight: 600; }
+  .addr-item .addr-label-text { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+  .addr-actions { display: flex; gap: 6px; }
+  .btn-icon { background: none; border: none; cursor: pointer; font-size: 16px; color: #9ca3af; }
+  .btn-icon:hover { color: #ef4444; }
+  .add-addr-row { display: flex; gap: 6px; margin-top: 8px; }
+  .add-addr-row input { flex: 1; }
+  .add-addr-row input.label-input { width: 80px; flex: none; }
+  .btn-row { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1 style="font-size:20px;font-weight:700">👥 고객 DB</h1>
+    <div class="top-btns">
+      <button class="btn-google" id="btn-google">🔗 Google</button>
+      <button class="btn-new" id="btn-new">+ 신규 고객</button>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <span class="google-status" id="google-status">Google 미연결</span>
+    <button class="btn-google" id="btn-sync-google" style="display:none;font-size:11px;padding:4px 10px">🔄 Google 동기화</button>
+    <button class="btn-google" id="btn-disconnect-google" style="display:none;font-size:11px;padding:4px 10px">❌ 연결 해제</button>
+    <button class="btn-google" onclick="location.href='customers-import.html'"
+      style="background:#f0fdf4;border-color:#86efac;color:#16a34a;font-size:11px;padding:4px 10px">📥 import</button>
+  </div>
+
+  <div class="search-wrap">
+    <input type="text" id="search-input" placeholder="이름 또는 전화번호 검색">
+    <span class="search-icon">🔍</span>
+  </div>
+  <div class="count" id="count"></div>
+  <div id="customer-list"></div>
+</div>
+
+<!-- 모달 -->
+<div class="modal-bg" id="modal-bg"></div>
+<div class="modal" id="modal">
+  <div class="modal-handle"></div>
+  <h2 id="modal-title">고객 정보</h2>
+  <div class="field">
+    <label>이름</label>
+    <input type="text" id="m-name" placeholder="홍길동">
+  </div>
+  <div class="field">
+    <label>전화번호</label>
+    <input type="text" id="m-phone" placeholder="01012345678">
+  </div>
+  <div class="field">
+    <label>메모</label>
+    <input type="text" id="m-memo" placeholder="특이사항">
+  </div>
+  <div class="field" id="addr-section" style="display:none">
+    <label>주소 목록</label>
+    <div id="addr-list"></div>
+    <div class="add-addr-row">
+      <input type="text" class="label-input" id="new-addr-label" placeholder="구분(집 등)">
+      <input type="text" id="new-addr-text" placeholder="새 주소 입력">
+      <button class="btn btn-outline" id="btn-add-addr">추가</button>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-success" id="modal-save">저장</button>
+    <button class="btn btn-outline" id="modal-cancel">취소</button>
+    <button class="btn btn-outline" id="modal-order" style="display:none">주문 입력 →</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script src="nav.js"></script>
+<script>
+const API = BB_CONFIG.API;
+const GAPI_CLIENT_ID = '851570899218-b6q8qu5kje3kef3fd1ns3877sgodjhvf.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/contacts';
+
+let accessToken = null;
+let tokenClient = null;
+let allCustomers = [];
+let currentCustomer = null;
+let isNew = false;
+
+// ── Google 연결 ────────────────────────────────────────
+window.onload = () => {
+  // 리다이렉트 후 토큰 파싱
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const token = hash.get('access_token');
+  if (token) {
+    accessToken = token;
+    history.replaceState(null, '', location.pathname);
+    document.getElementById('google-status').textContent = '✅ Google 연결됨';
+    document.getElementById('google-status').classList.add('connected');
+    document.getElementById('btn-sync-google').style.display = '';
+    document.getElementById('btn-disconnect-google').style.display = '';
+  }
+
+  const check = setInterval(() => {
+    if (typeof google === 'undefined' || !google.accounts) return;
+    clearInterval(check);
+    tokenClient = google.accounts.oauth2.initTokenClient({
+  client_id: GAPI_CLIENT_ID,
+  scope: SCOPES,
+  prompt: '',
+  callback: (resp) => {
+    if (resp.error) return;
+    accessToken = resp.access_token;
+    document.getElementById('google-status').textContent = '✅ Google 연결됨';
+    document.getElementById('google-status').classList.add('connected');
+    document.getElementById('btn-sync-google').style.display = '';
+    document.getElementById('btn-disconnect-google').style.display = '';
+  }
+});
+tokenClient.requestAccessToken();
+  }, 100);
+
+  loadCustomers();
+};
+
+document.getElementById('btn-google').addEventListener('click', () => {
+  if (!tokenClient) { showToast('잠시 후 다시 시도하세요'); return; }
+  tokenClient.requestAccessToken();
+});
+
+document.getElementById('btn-sync-google').addEventListener('click', async () => {
+  if (!accessToken) { showToast('Google 먼저 연결하세요'); return; }
+  showToast('Google 동기화 중...');
+  let created = 0, updated = 0, fail = 0;
+  for (const c of allCustomers) {
+    if (c.google_resource_name) {
+      await updateGoogleContact(c.google_resource_name, c.name, c.phone, c.memo);
+      updated++;
+    } else {
+      const rn = await createGoogleContact(c.name, c.phone, c.memo);
+      if (rn) {
+        await fetch(`${API}/api/customers/${c.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: c.name, phone: c.phone, memo: c.memo, google_resource_name: rn })
+        });
+        created++;
+      } else { fail++; }
+    }
+  }
+  showToast(`✅ 완료 — 신규 ${created} / 업데이트 ${updated}${fail ? ' / 실패 ' + fail : ''}`);
+  loadCustomers();
+});
+
+document.getElementById('btn-disconnect-google').addEventListener('click', () => {
+  accessToken = null;
+  document.getElementById('google-status').textContent = 'Google 미연결';
+  document.getElementById('google-status').classList.remove('connected');
+  document.getElementById('btn-sync-google').style.display = 'none';
+  document.getElementById('btn-disconnect-google').style.display = 'none';
+  showToast('Google 연결 해제됨');
+});
+
+// ── Google People API ──────────────────────────────────
+async function createGoogleContact(name, phone, memo) {
+  if (!accessToken) return null;
+  try {
+    const res = await fetch('https://people.googleapis.com/v1/people:createContact', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        names: [{ givenName: name }],
+        phoneNumbers: [{ value: phone }],
+        biographies: memo ? [{ value: memo }] : []
+      })
+    });
+    const data = await res.json();
+    return data.resourceName || null;
+  } catch (e) { return null; }
+}
+
+async function updateGoogleContact(resourceName, name, phone, memo) {
+  if (!accessToken || !resourceName) return;
+  try {
+    const r1 = await fetch(`https://people.googleapis.com/v1/${resourceName}?personFields=names,phoneNumbers,biographies,metadata`, {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    const person = await r1.json();
+    await fetch(`https://people.googleapis.com/v1/${resourceName}:updateContact?updatePersonFields=names,phoneNumbers,biographies`, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        etag: person.etag,
+        names: [{ givenName: name }],
+        phoneNumbers: [{ value: phone }],
+        biographies: memo ? [{ value: memo }] : []
+      })
+    });
+  } catch (e) {}
+}
+
+// ── 목록 로드 ──────────────────────────────────────────
+async function loadCustomers(q = '') {
+  const url = q ? `${API}/api/customers?q=${encodeURIComponent(q)}` : `${API}/api/customers`;
+  const res = await fetch(url);
+  allCustomers = await res.json();
+  renderList();
+}
+
+function renderList() {
+  const list = document.getElementById('customer-list');
+  document.getElementById('count').textContent = `총 ${allCustomers.length}명`;
+  if (!allCustomers.length) {
+    list.innerHTML = '<div class="empty">고객이 없습니다</div>';
+    return;
+  }
+  list.innerHTML = '';
+  allCustomers.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'customer-card';
+    div.innerHTML = `
+      <div class="customer-name">${c.name}</div>
+      <div class="customer-phone">${c.phone}</div>
+      ${c.memo ? `<div class="customer-memo">${c.memo}</div>` : ''}`;
+    div.addEventListener('click', () => openModal(c));
+    list.appendChild(div);
+  });
+}
+
+let searchTimer;
+document.getElementById('search-input').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadCustomers(e.target.value.trim()), 300);
+});
+
+// ── 모달 ──────────────────────────────────────────────
+async function openModal(customer) {
+  isNew = false;
+  currentCustomer = customer;
+  document.getElementById('modal-title').textContent = '고객 정보';
+  document.getElementById('m-name').value = customer.name;
+  document.getElementById('m-phone').value = customer.phone;
+  document.getElementById('m-memo').value = customer.memo || '';
+  document.getElementById('addr-section').style.display = '';
+  document.getElementById('modal-order').style.display = '';
+  const res = await fetch(`${API}/api/customers/${customer.id}`);
+  const data = await res.json();
+  renderAddrList(data.addresses || []);
+  showModal();
+}
+
+function openNewModal() {
+  isNew = true;
+  currentCustomer = null;
+  document.getElementById('modal-title').textContent = '신규 고객';
+  document.getElementById('m-name').value = '';
+  document.getElementById('m-phone').value = '';
+  document.getElementById('m-memo').value = '';
+  document.getElementById('addr-section').style.display = 'none';
+  document.getElementById('modal-order').style.display = 'none';
+  document.getElementById('addr-list').innerHTML = '';
+  showModal();
+}
+
+function showModal() {
+  document.getElementById('modal-bg').classList.add('show');
+  document.getElementById('modal').classList.add('show');
+}
+
+function hideModal() {
+  document.getElementById('modal-bg').classList.remove('show');
+  document.getElementById('modal').classList.remove('show');
+}
+
+document.getElementById('modal-bg').addEventListener('click', hideModal);
+document.getElementById('modal-cancel').addEventListener('click', hideModal);
+document.getElementById('btn-new').addEventListener('click', openNewModal);
+document.getElementById('modal-order').addEventListener('click', () => {
+  hideModal();
+  window.location.href = `order-new.html?customer_id=${currentCustomer.id}`;
+});
+
+// ── 주소 목록 렌더 ─────────────────────────────────────
+function renderAddrList(addresses) {
+  const list = document.getElementById('addr-list');
+  list.innerHTML = '';
+  if (!addresses.length) {
+    list.innerHTML = '<div style="color:#9ca3af;font-size:13px;margin-bottom:8px">등록된 주소 없음</div>';
+    return;
+  }
+  addresses.forEach(a => {
+    const div = document.createElement('div');
+    div.className = 'addr-item';
+    div.innerHTML = `
+      <div>
+        <div class="addr-text">${a.address}</div>
+        <div class="addr-label-text">${a.label || ''} ${a.is_default ? '⭐ 기본' : ''}</div>
+      </div>
+      <div class="addr-actions">
+        ${!a.is_default ? `<button class="btn-icon" data-default="${a.id}">⭐</button>` : ''}
+        <button class="btn-icon" data-del="${a.id}">🗑</button>
+      </div>`;
+    list.appendChild(div);
+  });
+
+  list.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`${API}/api/addresses/${btn.dataset.del}`, { method: 'DELETE' });
+      const res = await fetch(`${API}/api/customers/${currentCustomer.id}`);
+      const data = await res.json();
+      renderAddrList(data.addresses || []);
+      showToast('주소 삭제됨');
+    });
+  });
+
+  list.querySelectorAll('[data-default]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`${API}/api/addresses/${btn.dataset.default}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_default: 1, customer_id: currentCustomer.id })
+      });
+      const res = await fetch(`${API}/api/customers/${currentCustomer.id}`);
+      const data = await res.json();
+      renderAddrList(data.addresses || []);
+      showToast('기본 주소 변경됨');
+    });
+  });
+}
+
+document.getElementById('btn-add-addr').addEventListener('click', async () => {
+  const addr = document.getElementById('new-addr-text').value.trim();
+  const label = document.getElementById('new-addr-label').value.trim();
+  if (!addr) { showToast('주소를 입력하세요'); return; }
+  await fetch(`${API}/api/addresses`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ customer_id: currentCustomer.id, address: addr, label, is_default: 0 })
+  });
+  document.getElementById('new-addr-text').value = '';
+  document.getElementById('new-addr-label').value = '';
+  const res = await fetch(`${API}/api/customers/${currentCustomer.id}`);
+  const data = await res.json();
+  renderAddrList(data.addresses || []);
+  showToast('주소 추가됨');
+});
+
+// ── 저장 ──────────────────────────────────────────────
+document.getElementById('modal-save').addEventListener('click', async () => {
+  const name  = document.getElementById('m-name').value.trim();
+  const phone = document.getElementById('m-phone').value.trim().replace(/[^0-9]/g, '');
+  const memo  = document.getElementById('m-memo').value.trim();
+  if (!name || !phone) { showToast('이름과 전화번호를 입력하세요'); return; }
+
+  if (isNew) {
+    let google_resource_name = '';
+    if (accessToken) {
+      google_resource_name = await createGoogleContact(name, phone, memo) || '';
+    }
+    const res = await fetch(`${API}/api/customers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, memo, google_resource_name })
+    });
+    const data = await res.json();
+    if (data.id) {
+      showToast(accessToken ? '✅ 저장 + Google 등록 완료' : '✅ D1 저장 완료');
+      hideModal();
+      loadCustomers();
+    } else {
+      showToast('오류: ' + (data.error || '알 수 없음'));
+    }
+  } else {
+    if (accessToken && currentCustomer.google_resource_name) {
+      await updateGoogleContact(currentCustomer.google_resource_name, name, phone, memo);
+    }
+    await fetch(`${API}/api/customers/${currentCustomer.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, phone, memo })
+    });
+    showToast(accessToken ? '✅ 저장 + Google 업데이트 완료' : '✅ D1 저장 완료');
+    hideModal();
+    loadCustomers();
+  }
+});
+</script>
+</body>
+</html>
