@@ -24,13 +24,15 @@
   /* 진행 현황 바 */
   .progress-card h2 { font-size: 13px; font-weight: 700; color: #6b7280; margin-bottom: 12px; }
   .progress-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .progress-row .p-label { width: 40px; font-size: 12px; color: #6b7280; font-weight: 600; flex-shrink: 0; }
+  .progress-row .p-label { width: 52px; font-size: 12px; color: #6b7280; font-weight: 600; flex-shrink: 0; }
   .progress-bar-wrap { flex: 1; background: #f3f4f6; border-radius: 99px; height: 10px; overflow: hidden; }
   .progress-bar { height: 100%; border-radius: 99px; transition: width .4s ease; }
-  .bar-접수 { background: #cbd5e1; }
-  .bar-출력 { background: #fbbf24; }
-  .bar-송장 { background: #60a5fa; }
-  .bar-발송 { background: #34d399; }
+  .bar-주문입력 { background: #94a3b8; }
+  .bar-주문확정 { background: #3b82f6; }
+  .bar-주문출력 { background: #f59e0b; }
+  .bar-송장출력 { background: #8b5cf6; }
+  .bar-배송완료 { background: #10b981; }
+  .bar-수금완료 { background: #065f46; }
   .progress-row .p-count { width: 28px; font-size: 13px; font-weight: 700; text-align: right; flex-shrink: 0; }
 
   /* 빠른 액션 */
@@ -58,7 +60,7 @@
   <!-- 요약 카드 -->
   <div class="summary-grid">
     <div class="summary-card card warn">
-      <div class="label">미발송</div>
+      <div class="label">처리중</div>
       <div class="num" id="cnt-pending">-</div>
       <div class="sub" id="sub-pending"></div>
     </div>
@@ -68,7 +70,7 @@
       <div class="sub" id="sub-unpaid"></div>
     </div>
     <div class="summary-card card ok">
-      <div class="label">오늘 발송</div>
+      <div class="label">배송완료</div>
       <div class="num" id="cnt-today-sent">-</div>
       <div class="sub">건</div>
     </div>
@@ -83,24 +85,34 @@
   <div class="card progress-card" style="margin-bottom:14px">
     <h2>진행 현황</h2>
     <div class="progress-row">
-      <div class="p-label">접수</div>
-      <div class="progress-bar-wrap"><div class="progress-bar bar-접수" id="bar-접수" style="width:0%"></div></div>
-      <div class="p-count" id="pc-접수">0</div>
+      <div class="p-label">주문입력</div>
+      <div class="progress-bar-wrap"><div class="progress-bar bar-주문입력" id="bar-주문입력" style="width:0%"></div></div>
+      <div class="p-count" id="pc-주문입력">0</div>
     </div>
     <div class="progress-row">
-      <div class="p-label">출력</div>
-      <div class="progress-bar-wrap"><div class="progress-bar bar-출력" id="bar-출력" style="width:0%"></div></div>
-      <div class="p-count" id="pc-출력">0</div>
+      <div class="p-label">주문확정</div>
+      <div class="progress-bar-wrap"><div class="progress-bar bar-주문확정" id="bar-주문확정" style="width:0%"></div></div>
+      <div class="p-count" id="pc-주문확정">0</div>
     </div>
     <div class="progress-row">
-      <div class="p-label">송장</div>
-      <div class="progress-bar-wrap"><div class="progress-bar bar-송장" id="bar-송장" style="width:0%"></div></div>
-      <div class="p-count" id="pc-송장">0</div>
+      <div class="p-label">주문출력</div>
+      <div class="progress-bar-wrap"><div class="progress-bar bar-주문출력" id="bar-주문출력" style="width:0%"></div></div>
+      <div class="p-count" id="pc-주문출력">0</div>
     </div>
     <div class="progress-row">
-      <div class="p-label">발송</div>
-      <div class="progress-bar-wrap"><div class="progress-bar bar-발송" id="bar-발송" style="width:0%"></div></div>
-      <div class="p-count" id="pc-발송">0</div>
+      <div class="p-label">송장출력</div>
+      <div class="progress-bar-wrap"><div class="progress-bar bar-송장출력" id="bar-송장출력" style="width:0%"></div></div>
+      <div class="p-count" id="pc-송장출력">0</div>
+    </div>
+    <div class="progress-row">
+      <div class="p-label">배송완료</div>
+      <div class="progress-bar-wrap"><div class="progress-bar bar-배송완료" id="bar-배송완료" style="width:0%"></div></div>
+      <div class="p-count" id="pc-배송완료">0</div>
+    </div>
+    <div class="progress-row">
+      <div class="p-label">수금완료</div>
+      <div class="progress-bar-wrap"><div class="progress-bar bar-수금완료" id="bar-수금완료" style="width:0%"></div></div>
+      <div class="p-count" id="pc-수금완료">0</div>
     </div>
   </div>
 
@@ -128,11 +140,12 @@
 
   <div class="filter-row">
     <button class="filter-btn active" data-filter="">전체</button>
-    <button class="filter-btn" data-filter="접수">접수</button>
-    <button class="filter-btn" data-filter="출력">출력</button>
-    <button class="filter-btn" data-filter="송장">송장</button>
-    <button class="filter-btn" data-filter="발송">발송</button>
-    <button class="filter-btn" data-filter="__미수">미수</button>
+    <button class="filter-btn" data-filter="주문입력">주문입력</button>
+    <button class="filter-btn" data-filter="주문확정">주문확정</button>
+    <button class="filter-btn" data-filter="주문출력">주문출력</button>
+    <button class="filter-btn" data-filter="송장출력">송장출력</button>
+    <button class="filter-btn" data-filter="배송완료">배송완료</button>
+    <button class="filter-btn" data-filter="수금완료">수금완료</button>
   </div>
 
   <div id="order-list"></div>
@@ -160,21 +173,22 @@ async function loadOrders() {
 }
 
 function updateSummary() {
-  const pending   = allOrders.filter(o => ['접수','출력','송장'].includes(o.status));
+  const ACTIVE = ['주문입력','주문확정','주문출력','송장출력'];
+  const pending   = allOrders.filter(o => ACTIVE.includes(o.status));
   const unpaid    = allOrders.filter(o => o.payment_status === '미수');
-  const todaySent = allOrders.filter(o => o.status === '발송' && (o.updated_at || '').startsWith(todayPrefix));
+  const delivered = allOrders.filter(o => o.status === '배송완료');
 
   document.getElementById('cnt-pending').textContent = pending.length;
   document.getElementById('sub-pending').textContent =
-    `접수 ${allOrders.filter(o=>o.status==='접수').length} / 출력 ${allOrders.filter(o=>o.status==='출력').length} / 송장 ${allOrders.filter(o=>o.status==='송장').length}`;
+    ACTIVE.map(s => `${s} ${allOrders.filter(o=>o.status===s).length}`).join(' / ');
   document.getElementById('cnt-unpaid').textContent = unpaid.length;
   document.getElementById('sub-unpaid').textContent =
     unpaid.reduce((s, o) => s + o.total_amount, 0).toLocaleString() + '원';
-  document.getElementById('cnt-today-sent').textContent = todaySent.length;
+  document.getElementById('cnt-today-sent').textContent = delivered.length;
   document.getElementById('cnt-total').textContent = allOrders.length;
 
   const total = allOrders.length || 1;
-  ['접수','출력','송장','발송'].forEach(s => {
+  ['주문입력','주문확정','주문출력','송장출력','배송완료','수금완료'].forEach(s => {
     const cnt = allOrders.filter(o => o.status === s).length;
     document.getElementById('bar-' + s).style.width = (cnt / total * 100) + '%';
     document.getElementById('pc-' + s).textContent = cnt;
@@ -184,8 +198,7 @@ function updateSummary() {
 function renderOrders() {
   const list = document.getElementById('order-list');
   let filtered;
-  if (currentFilter === '__미수') filtered = allOrders.filter(o => o.payment_status === '미수');
-  else if (currentFilter) filtered = allOrders.filter(o => o.status === currentFilter);
+  if (currentFilter) filtered = allOrders.filter(o => o.status === currentFilter);
   else filtered = allOrders;
 
   if (!filtered.length) {

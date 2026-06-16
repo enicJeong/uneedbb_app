@@ -256,7 +256,16 @@ async function updatePayment(payment_status) {
 }
 
 document.getElementById('btn-save-tracking').addEventListener('click', async () => {
-  const val = document.getElementById('tracking-input').value.trim();
+  let val = document.getElementById('tracking-input').value.trim();
+  if (val) {
+    // 숫자만 추출
+    const digits = val.replace(/[^0-9]/g, '');
+    // 12자리면 0000-0000-0000 형식으로 변환
+    if (digits.length === 12) {
+      val = `${digits.slice(0,4)}-${digits.slice(4,8)}-${digits.slice(8,12)}`;
+    }
+    document.getElementById('tracking-input').value = val;
+  }
   await fetch(`${API}/api/orders/${orderId}/tracking_no`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
