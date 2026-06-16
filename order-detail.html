@@ -106,8 +106,22 @@ async function loadOrder() {
   render();
 }
 
+const STATUS_COLOR = {
+  '주문입력': '#94a3b8',
+  '주문확정': '#3b82f6',
+  '주문출력': '#f59e0b',
+  '송장출력': '#8b5cf6',
+  '배송완료': '#10b981',
+  '수금완료': '#065f46',
+};
+
 function render() {
   document.getElementById('page-title').textContent = order.order_no || `주문 #${order.id}`;
+
+  const currentColor = STATUS_COLOR[order.status] || '#2563eb';
+
+  // 진행 상태 카드 테두리 색상
+  document.querySelector('.card').style.borderTop = `4px solid ${currentColor}`;
 
   // 상태 흐름
   const flow = document.getElementById('status-flow');
@@ -116,14 +130,36 @@ function render() {
   STATUSES.forEach((s, i) => {
     const isDone = i < idx;
     const isCurrent = i === idx;
+    const color = STATUS_COLOR[s] || '#2563eb';
     const step = document.createElement('div');
     step.className = 'step';
-    step.innerHTML = `
-      <div class="step-dot ${isDone ? 'done' : isCurrent ? 'current' : ''}">
-        ${isDone ? '✓' : i + 1}
-      </div>
-      <div class="step-label ${isCurrent ? 'current' : ''}">${s}</div>`;
+
+    const dot = document.createElement('div');
+    dot.className = 'step-dot';
+    dot.textContent = isDone ? '✓' : i + 1;
+    if (isDone) {
+      dot.style.background = color;
+      dot.style.borderColor = color;
+      dot.style.color = '#fff';
+    } else if (isCurrent) {
+      dot.style.background = '#fff';
+      dot.style.borderColor = color;
+      dot.style.color = color;
+      dot.style.borderWidth = '3px';
+    }
+
+    const label = document.createElement('div');
+    label.className = 'step-label';
+    label.textContent = s;
+    if (isCurrent) {
+      label.style.color = color;
+      label.style.fontWeight = '700';
+    }
+
+    step.appendChild(dot);
+    step.appendChild(label);
     flow.appendChild(step);
+
     if (i < STATUSES.length - 1) {
       const arrow = document.createElement('div');
       arrow.className = 'step-arrow';
@@ -138,9 +174,12 @@ function render() {
 
   // 이전 단계 버튼 (왼쪽)
   if (idx > 0) {
+    const prevColor = STATUS_COLOR[STATUSES[idx - 1]] || '#94a3b8';
     const btn = document.createElement('button');
     btn.className = 'btn btn-outline';
     btn.textContent = `← ${STATUSES[idx - 1]}로 되돌리기`;
+    btn.style.borderColor = prevColor;
+    btn.style.color = prevColor;
     btn.addEventListener('click', () => updateStatus(STATUSES[idx - 1]));
     statusBtns.appendChild(btn);
   }
@@ -148,9 +187,12 @@ function render() {
   // 다음 단계 버튼 (오른쪽)
   if (idx < STATUSES.length - 1) {
     const next = STATUSES[idx + 1];
+    const nextColor = STATUS_COLOR[next] || '#2563eb';
     const btn = document.createElement('button');
     btn.className = 'btn btn-primary';
     btn.textContent = `→ ${next}`;
+    btn.style.background = nextColor;
+    btn.style.borderColor = nextColor;
     btn.addEventListener('click', async () => {
       if (next === '주문확정') {
         await confirmOrder();
