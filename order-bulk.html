@@ -23,14 +23,16 @@
   .desc { font-size: 13px; color: #6b7280; margin-bottom: 16px; }
 
   /* 송장 탭 */
-  .tracking-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .tracking-grid label { font-size: 12px; font-weight: 700; color: #374151; display: block; margin-bottom: 6px; }
-  .tracking-preview table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .tracking-preview th { background: #f3f4f6; padding: 7px 10px; text-align: left;
-    font-size: 12px; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
-  .tracking-preview td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; }
-  .tracking-preview tr.match td { background: #f0fdf4; }
-  .tracking-preview tr.err td { background: #fff1f2; }
+  .t-tbl { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 700px; }
+  .t-tbl th { background: #f3f4f6; padding: 8px 10px; text-align: left;
+    font-size: 12px; color: #6b7280; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+  .t-tbl td { padding: 6px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+  .t-tbl tr.matched td { background: #f0fdf4; }
+  .t-input { width: 100%; padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 6px;
+    font-size: 12px; font-family: monospace; box-sizing: border-box; }
+  .t-input:focus { outline: none; border-color: #2563eb; }
+  .t-input.match { border-color: #10b981; background: #f0fdf4; }
+  .t-input.mismatch { border-color: #ef4444; background: #fff1f2; }
 
   /* 주소 탭 */
   .col-hint { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -66,47 +68,37 @@
   <!-- 탭 1: 송장 입력                                    -->
   <!-- ══════════════════════════════════════════════════ -->
   <div id="tab-tracking">
-    <p class="desc">택배사에서 받은 엑셀의 <strong>주문번호</strong>와 <strong>송장번호</strong>를 각 칸에 붙여넣으세요. 위에서 아래로 한 줄씩.</p>
+    <p class="desc">
+      <strong>송장출력</strong> 상태 주문이 표시됩니다. 택배사 엑셀의 주문번호·송장번호 열을 복사해서 각 칸에 붙여넣으세요.<br>
+      <span style="color:#6b7280">화면의 주문번호와 입력한 주문번호가 일치하는 행만 저장되고, 상태가 <strong>배송완료</strong>로 변경됩니다.</span>
+    </p>
 
-    <div class="card">
-      <h2>① 붙여넣기</h2>
-      <div class="tracking-grid">
-        <div>
-          <label>주문번호 (한 줄에 하나)</label>
-          <textarea id="t-order-nos" rows="12" placeholder="26주문-001&#10;26주문-002&#10;26주문-003"></textarea>
-        </div>
-        <div>
-          <label>송장번호 (한 줄에 하나)</label>
-          <textarea id="t-tracking-nos" rows="12" placeholder="1234-5678-9012&#10;2345-6789-0123&#10;3456-7890-1234"></textarea>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #f3f4f6">
+        <h2 style="margin:0">송장출력 주문 <span id="t-count" style="font-size:13px;color:#9ca3af;font-weight:400"></span></h2>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline" id="btn-t-reload">↺ 새로고침</button>
+          <button class="btn btn-primary" id="btn-t-save">저장 (일치 항목만)</button>
+          <span class="status-msg" id="t-save-status"></span>
         </div>
       </div>
-      <div class="gap" style="margin-top:12px">
-        <button class="btn btn-primary" id="btn-t-parse">매핑 확인</button>
-        <button class="btn btn-outline" id="btn-t-clear">초기화</button>
-        <span class="status-msg" id="t-parse-status"></span>
+      <div class="tbl-wrap" style="overflow-x:auto">
+        <table class="t-tbl">
+          <thead>
+            <tr>
+              <th style="width:32px">#</th>
+              <th>DB 주문번호</th>
+              <th>주문자</th>
+              <th style="width:160px">택배사 주문번호 입력</th>
+              <th style="width:160px">송장번호 입력</th>
+              <th style="width:60px">일치</th>
+            </tr>
+          </thead>
+          <tbody id="t-tbody"></tbody>
+        </table>
       </div>
     </div>
-
-    <div class="card tracking-preview" id="t-preview-card" style="display:none">
-      <h2>② 매핑 미리보기 <span id="t-preview-count"></span></h2>
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>주문번호</th>
-            <th>송장번호 (자동 포맷)</th>
-            <th>상태</th>
-          </tr>
-        </thead>
-        <tbody id="t-preview-body"></tbody>
-      </table>
-      <div class="gap" style="margin-top:16px">
-        <button class="btn btn-success" id="btn-t-save">DB에 저장</button>
-        <span class="status-msg" id="t-save-status"></span>
-      </div>
-    </div>
-
-    <div id="t-result-wrap" style="display:none"></div>
+    <div id="t-result-wrap" style="display:none;margin-top:12px"></div>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -186,8 +178,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     document.getElementById('tab-tracking').style.display = btn.dataset.tab === 'tracking' ? '' : 'none';
     document.getElementById('tab-bulk').style.display     = btn.dataset.tab === 'bulk'     ? '' : 'none';
+    if (btn.dataset.tab === 'tracking') loadTrackingOrders();
   });
 });
+
+// 초기 로드
+loadTrackingOrders();
 
 // ════════════════════════════════════════════════════
 // 탭 1: 송장 입력
@@ -200,92 +196,149 @@ function formatTrackingNo(val) {
   return val;
 }
 
-document.getElementById('btn-t-parse').addEventListener('click', () => {
-  const orderNos   = document.getElementById('t-order-nos').value.trim().split('\n').map(s => s.trim()).filter(Boolean);
-  const trackingNos = document.getElementById('t-tracking-nos').value.trim().split('\n').map(s => s.trim()).filter(Boolean);
+// ════════════════════════════════════════════════════
+// 탭 1: 송장 입력
+// ════════════════════════════════════════════════════
+let tOrders = []; // 송장출력 상태 주문 목록
 
-  if (!orderNos.length || !trackingNos.length) {
-    setStatus('t-parse-status', '주문번호와 송장번호를 모두 입력하세요', true);
-    return;
-  }
-  if (orderNos.length !== trackingNos.length) {
-    setStatus('t-parse-status', `줄 수가 다릅니다 (주문번호 ${orderNos.length}개 / 송장번호 ${trackingNos.length}개)`, true);
-    return;
-  }
+function formatTrackingNo(val) {
+  const digits = val.replace(/[^0-9]/g, '');
+  if (digits.length === 12) return `${digits.slice(0,4)}-${digits.slice(4,8)}-${digits.slice(8,12)}`;
+  return val;
+}
 
-  trackingRows = orderNos.map((no, i) => ({
-    order_no: no,
-    tracking_no: formatTrackingNo(trackingNos[i]),
-  }));
+async function loadTrackingOrders() {
+  const res = await fetch(`${API}/api/orders/export?status=송장출력`);
+  tOrders = await res.json();
+  document.getElementById('t-count').textContent = `(${tOrders.length}건)`;
+  renderTrackingTable();
+}
 
-  const tbody = document.getElementById('t-preview-body');
+function renderTrackingTable() {
+  const tbody = document.getElementById('t-tbody');
   tbody.innerHTML = '';
-  trackingRows.forEach((row, i) => {
+  tOrders.forEach((o, i) => {
     const tr = document.createElement('tr');
-    tr.className = 'match';
+    tr.dataset.id = o.id;
+    tr.dataset.orderNo = o.order_no;
     tr.innerHTML = `
       <td style="color:#9ca3af">${i + 1}</td>
-      <td style="font-weight:600">${row.order_no}</td>
-      <td style="color:#2563eb;font-family:monospace">${row.tracking_no}</td>
-      <td><span class="badge badge-ok">대기</span></td>`;
+      <td style="font-weight:600;font-family:monospace">${o.order_no}</td>
+      <td style="font-size:12px;color:#374151">${o.orderer_name || ''}</td>
+      <td><input class="t-input t-order-input" type="text" placeholder="${o.order_no}" data-idx="${i}"></td>
+      <td><input class="t-input t-tracking-input" type="text" placeholder="0000-0000-0000" data-idx="${i}"></td>
+      <td style="text-align:center" class="t-match-cell">—</td>`;
     tbody.appendChild(tr);
   });
 
-  document.getElementById('t-preview-count').textContent = `(${trackingRows.length}건)`;
-  document.getElementById('t-preview-card').style.display = '';
-  setStatus('t-parse-status', '');
-});
+  // 주문번호 입력 시 일치 여부 실시간 체크
+  tbody.querySelectorAll('.t-order-input').forEach(input => {
+    input.addEventListener('input', e => checkMatch(+e.target.dataset.idx));
+    input.addEventListener('paste', e => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      distributeValues(text, '.t-order-input', +e.target.dataset.idx);
+    });
+  });
+
+  // 송장번호 붙여넣기 분배
+  tbody.querySelectorAll('.t-tracking-input').forEach(input => {
+    input.addEventListener('paste', e => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      distributeValues(text, '.t-tracking-input', +e.target.dataset.idx);
+    });
+    input.addEventListener('input', e => {
+      // 자동 포맷
+      const val = e.target.value;
+      const digits = val.replace(/[^0-9]/g, '');
+      if (digits.length === 12) e.target.value = formatTrackingNo(val);
+    });
+  });
+}
+
+// 여러 줄을 해당 인덱스부터 순서대로 각 셀에 분배
+function distributeValues(text, selector, startIdx) {
+  const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
+  const inputs = document.querySelectorAll(`#t-tbody ${selector}`);
+  lines.forEach((line, j) => {
+    const idx = startIdx + j;
+    if (inputs[idx]) {
+      inputs[idx].value = selector === '.t-tracking-input' ? formatTrackingNo(line) : line;
+      checkMatch(idx);
+    }
+  });
+}
+
+function checkMatch(idx) {
+  const row = document.querySelector(`#t-tbody tr:nth-child(${idx + 1})`);
+  if (!row) return;
+  const dbNo    = row.dataset.orderNo;
+  const inputNo = row.querySelector('.t-order-input').value.trim();
+  const matchCell = row.querySelector('.t-match-cell');
+  if (!inputNo) {
+    row.classList.remove('matched');
+    matchCell.innerHTML = '—';
+    return;
+  }
+  if (inputNo === dbNo) {
+    row.classList.add('matched');
+    matchCell.innerHTML = '<span class="badge badge-ok">✓</span>';
+  } else {
+    row.classList.remove('matched');
+    matchCell.innerHTML = '<span class="badge badge-err">✗</span>';
+  }
+}
+
+document.getElementById('btn-t-reload').addEventListener('click', loadTrackingOrders);
 
 document.getElementById('btn-t-save').addEventListener('click', async () => {
   const btn = document.getElementById('btn-t-save');
   btn.disabled = true;
-  let ok = 0, failed = [];
+  const rows = document.querySelectorAll('#t-tbody tr');
+  let ok = 0, skipped = 0, failed = [];
 
-  for (let i = 0; i < trackingRows.length; i++) {
-    const row = trackingRows[i];
-    setStatus('t-save-status', `저장 중... ${i + 1}/${trackingRows.length}`);
+  for (const row of rows) {
+    const dbNo      = row.dataset.orderNo;
+    const id        = row.dataset.id;
+    const inputNo   = row.querySelector('.t-order-input').value.trim();
+    const trackingNo = row.querySelector('.t-tracking-input').value.trim();
+
+    if (!inputNo || inputNo !== dbNo) { skipped++; continue; }
+    if (!trackingNo) { skipped++; continue; }
+
+    setStatus('t-save-status', `저장 중...`);
     try {
-      // 주문번호로 주문 id 조회
-      const res = await fetch(`${API}/api/orders/by-no?order_no=${encodeURIComponent(row.order_no)}`);
-      const data = await res.json();
-      if (!data.id) throw new Error('주문번호를 찾을 수 없음');
-
-      await fetch(`${API}/api/orders/${data.id}/tracking_no`, {
+      // 송장번호 저장
+      await fetch(`${API}/api/orders/${id}/tracking_no`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tracking_no: row.tracking_no })
+        body: JSON.stringify({ tracking_no: trackingNo })
       });
-
-      // 미리보기 상태 업데이트
-      const tr = document.getElementById('t-preview-body').rows[i];
-      tr.cells[3].innerHTML = '<span class="badge badge-ok">저장됨</span>';
+      // 상태 → 배송완료
+      await fetch(`${API}/api/orders/${id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: '배송완료' })
+      });
+      row.querySelector('.t-match-cell').innerHTML = '<span class="badge badge-ok">저장됨</span>';
+      row.style.opacity = '0.5';
       ok++;
     } catch (e) {
-      const tr = document.getElementById('t-preview-body').rows[i];
-      tr.className = 'err';
-      tr.cells[3].innerHTML = `<span class="badge badge-err">실패</span> <span style="font-size:11px;color:#991b1b">${e.message}</span>`;
-      failed.push(`${row.order_no}: ${e.message}`);
+      row.querySelector('.t-match-cell').innerHTML = '<span class="badge badge-err">실패</span>';
+      failed.push(`${dbNo}: ${e.message}`);
     }
   }
 
   const box = document.getElementById('t-result-wrap');
   box.style.display = '';
   box.innerHTML = `<div class="result-box ${failed.length ? 'result-warn' : 'result-ok'}">
-    ✅ 완료 — 성공 <strong>${ok}건</strong> / 실패 <strong>${failed.length}건</strong>
+    ✅ 완료 — 저장 <strong>${ok}건</strong> / 건너뜀 <strong>${skipped}건</strong> / 실패 <strong>${failed.length}건</strong>
     ${failed.length ? `<div class="err-list">${failed.join('<br>')}</div>` : ''}
   </div>`;
-  setStatus('t-save-status', '완료');
-  btn.disabled = false;
-});
-
-document.getElementById('btn-t-clear').addEventListener('click', () => {
-  document.getElementById('t-order-nos').value = '';
-  document.getElementById('t-tracking-nos').value = '';
-  document.getElementById('t-preview-card').style.display = 'none';
-  document.getElementById('t-result-wrap').style.display = 'none';
-  trackingRows = [];
-  setStatus('t-parse-status', '');
   setStatus('t-save-status', '');
+  btn.disabled = false;
+  if (ok > 0) setTimeout(loadTrackingOrders, 1500);
 });
 
 // ════════════════════════════════════════════════════
