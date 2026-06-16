@@ -51,15 +51,16 @@
         <tr>
           <th>주문번호</th>
           <th>접수일</th>
-          <th>P</th>
+          <th>진행</th>
           <th>주문자</th>
+          <th>메모</th>
           <th>수령자</th>
           <th>배송</th>
           <th>주소</th>
+          <th>택배송장</th>
           <th>청구금액</th>
-          <th>진행</th>
           <th>수금</th>
-          <th>메모</th>
+          <th>P</th>
         </tr>
       </thead>
       <tbody id="desktop-tbody"></tbody>
@@ -75,6 +76,14 @@
 <script>
 const API = BB_CONFIG.API;
 let allOrders = [];
+
+// 주문번호 포맷 변환: 주문-2026-000 → 26주문-000
+function formatOrderNo(orderNo) {
+  if (!orderNo) return orderNo;
+  const m = orderNo.match(/^주문-(\d{4})-(\d+)$/);
+  if (m) return `${m[1].slice(2)}주문-${m[2]}`;
+  return orderNo;
+}
 let currentFilter = '';
 
 async function loadOrders() {
@@ -121,7 +130,7 @@ function renderOrders() {
     const date = (o.created_at || '').slice(0, 10);
     card.innerHTML = `
       <div class="order-top">
-        <span class="order-id">${o.order_no || '#' + o.id} · ${date}</span>
+        <span class="order-id">${formatOrderNo(o.order_no) || '#' + o.id} · ${date}</span>
         <div class="badges">
           <span class="badge badge-p${priorityClass}">P${o.priority}</span>
           <span class="badge badge-${o.status}">${o.status}</span>
@@ -147,13 +156,14 @@ function renderOrders() {
     const priorityClass = o.priority <= 2 ? ' high' : '';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="order-no">${o.order_no || '#' + o.id}</td>
+      <td class="order-no">${formatOrderNo(o.order_no) || '#' + o.id}</td>
       <td style="color:#9ca3af;white-space:nowrap">${date}</td>
-      <td><span class="badge badge-p${priorityClass}">P${o.priority}</span></td>
+      <td><span class="badge badge-${o.status}">${o.status}</span></td>
       <td class="names">
         ${o.orderer_name}
         <div style="font-size:11px;color:#9ca3af">${o.orderer_phone || ''}</div>
       </td>
+      <td class="memo-cell">${o.memo || ''}</td>
       <td class="names">
         ${o.recipient_name
           ? `${o.recipient_name}<div class="recip">${o.recipient_phone || ''}</div>`
@@ -161,10 +171,10 @@ function renderOrders() {
       </td>
       <td><span class="badge badge-${o.delivery_type}">${o.delivery_type}</span></td>
       <td class="addr-cell">${o.address || '-'}</td>
+      <td style="white-space:nowrap;font-size:12px;color:#6b7280">${o.tracking_no || ''}</td>
       <td class="amount">${o.total_amount.toLocaleString()}원</td>
-      <td><span class="badge badge-${o.status}">${o.status}</span></td>
       <td><span class="badge badge-${o.payment_status}">${o.payment_status}</span></td>
-      <td class="memo-cell">${o.memo || ''}</td>`;
+      <td><span class="badge badge-p${priorityClass}">P${o.priority}</span></td>`;
     tr.addEventListener('click', () => { window.location.href = `order-detail.html?id=${o.id}`; });
     tbody.appendChild(tr);
   });

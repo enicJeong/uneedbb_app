@@ -21,6 +21,10 @@
       <input type="text" id="order-no" placeholder="자동 채번 중...">
       <div class="order-no-msg" id="order-no-msg"></div>
     </div>
+    <div class="field" style="margin-top:10px">
+      <label>접수일</label>
+      <input type="date" id="order-date">
+    </div>
   </div>
 
   <!-- 주문자 -->
@@ -146,6 +150,10 @@ let orderNoValid = true;
 // ── 입력일 ────────────────────────────────────────────
 document.getElementById('input-date').textContent =
   new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+
+// ── 접수일 기본값 (오늘) ──────────────────────────────
+document.getElementById('order-date').value =
+  new Date().toISOString().slice(0, 10);
 
 // ── 주문번호 ──────────────────────────────────────────
 const orderNoChecker = setupOrderNoCheck('order-no', 'order-no-msg');
@@ -284,6 +292,7 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
     memo:          document.getElementById('memo').value,
     items,
     shipping_fee:  +document.getElementById('shipping-fee').value || 0,
+    created_at:    document.getElementById('order-date').value,
   };
 
   try {
