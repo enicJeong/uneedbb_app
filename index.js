@@ -68,24 +68,25 @@ async function insertDeliverySms(db, orderId) {
   const dateStr  = `${month}월 ${day}일(${dayName})`;
 
   const makeMsg = (name) =>
-    `[블루베리아침농원]\n<${order.orderer_name}>님이 주문하신 블루베리 ${qty}Kg 가\n<${name}>님께 ${dateStr} 저녁 택배로 발송하였습니다.\n로젠택배 [${trackingNo}]`;
+    `[블루베리아침농원]\n<${order.orderer_name}>님이 주문하신 블루베리 ${qty}Kg 가\n<${name}>님께 ${dateStr} 저녁 택배로 발송하였습니다.\n로젠택배\n${trackingNo}`;
+
+  const insertIfNew = async (customerId, phone, message) => {
+    const dup = await db.prepare(
+      `SELECT id FROM sms_queue WHERE order_id = ? AND phone = ?`
+    ).bind(orderId, phone).first();
+    if (dup) return;
+    await db.prepare(
+      `INSERT INTO sms_queue (order_id, customer_id, phone, message) VALUES (?, ?, ?, ?)`
+    ).bind(orderId, customerId, phone, message).run();
+  };
 
   const sameRecipient = recipientPhone === order.orderer_phone;
 
   if (sameRecipient) {
-    // 수신자 = 주문자 → 1건
-    await db.prepare(
-      `INSERT INTO sms_queue (order_id, customer_id, phone, message) VALUES (?, ?, ?, ?)`
-    ).bind(orderId, order.orderer_id, order.orderer_phone, makeMsg(recipientName)).run();
+    await insertIfNew(order.orderer_id, recipientPhone, makeMsg(recipientName));
   } else {
-    // 주문자에게 1건
-    await db.prepare(
-      `INSERT INTO sms_queue (order_id, customer_id, phone, message) VALUES (?, ?, ?, ?)`
-    ).bind(orderId, order.orderer_id, order.orderer_phone, makeMsg(recipientName)).run();
-    // 수령자에게 1건
-    await db.prepare(
-      `INSERT INTO sms_queue (order_id, customer_id, phone, message) VALUES (?, ?, ?, ?)`
-    ).bind(orderId, order.recipient_id, recipientPhone, makeMsg(recipientName)).run();
+    await insertIfNew(order.orderer_id, order.orderer_phone, makeMsg(recipientName));
+    await insertIfNew(order.recipient_id, recipientPhone, makeMsg(recipientName));
   }
 }
 
