@@ -230,8 +230,7 @@ document.getElementById('btn-import').addEventListener('click', async () => {
   setStatus('import-status', '');
   document.getElementById('progress-wrap').style.display = '';
   document.getElementById('progress-bar').style.width = '0%';
-  document.getElementById('progress-pct').textContent = '0%';
-  document.getElementById('progress-label').textContent = `처리 중... 0 / ${contacts.length}건`;
+  setStep(2, `0 / ${contacts.length}건`);
 
   try {
     const CHUNK = 100;
