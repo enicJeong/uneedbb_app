@@ -260,8 +260,8 @@ export default {
         const rows = status
           ? await env.DB.prepare(`
               SELECT o.*,
-                c.name  AS orderer_name,  c.phone  AS orderer_phone,
-                r.name  AS recipient_name, r.phone AS recipient_phone,
+                c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
+                r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
                 a.address
               FROM orders o
               LEFT JOIN customers c ON o.orderer_id  = c.id
@@ -272,8 +272,8 @@ export default {
             `).bind(status).all()
           : await env.DB.prepare(`
               SELECT o.*,
-                c.name  AS orderer_name,  c.phone  AS orderer_phone,
-                r.name  AS recipient_name, r.phone AS recipient_phone,
+                c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
+                r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
                 a.address
               FROM orders o
               LEFT JOIN customers c ON o.orderer_id  = c.id

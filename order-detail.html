@@ -227,9 +227,13 @@ function render() {
   // 주문 정보
   document.getElementById('d-order-no').textContent   = order.order_no || '-';
   document.getElementById('d-date').textContent       = order.created_at || '-';
-  document.getElementById('d-orderer').textContent    = `${order.orderer_name} ${order.orderer_phone}`;
-  document.getElementById('d-recipient').textContent  = order.recipient_name
-    ? `${order.recipient_name} ${order.recipient_phone}` : '주문자와 동일';
+  document.getElementById('d-orderer').innerHTML =
+    `${order.orderer_name} ${order.orderer_phone}` +
+    (order.orderer_memo ? `<div style="font-size:11px;color:#f59e0b;font-weight:600;margin-top:2px">📝 ${order.orderer_memo}</div>` : '');
+  document.getElementById('d-recipient').innerHTML = order.recipient_name
+    ? `${order.recipient_name} ${order.recipient_phone}` +
+      (order.recipient_memo ? `<div style="font-size:11px;color:#f59e0b;font-weight:600;margin-top:2px">📝 ${order.recipient_memo}</div>` : '')
+    : '주문자와 동일';
   document.getElementById('d-delivery').textContent   = order.delivery_type;
   document.getElementById('d-address').textContent    = order.address || '-';
   document.getElementById('d-priority').textContent   = 'P' + order.priority;
