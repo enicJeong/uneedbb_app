@@ -16,6 +16,37 @@
   }
 
   .print-chk { width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; }
+  .sel-chk   { width: 16px; height: 16px; cursor: pointer; accent-color: #2563eb; }
+  tr.selected td { background: #eff6ff !important; }
+
+  /* 하단 플로팅 바 */
+  #bulk-bar {
+    position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%);
+    background: #1e293b; color: #fff; border-radius: 12px;
+    padding: 10px 16px; display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3); z-index: 150;
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+    transition: opacity .2s, transform .2s;
+  }
+  #bulk-bar.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(12px); }
+  #bulk-bar .bar-count { color: #93c5fd; }
+  #bulk-bar button {
+    padding: 6px 14px; border-radius: 8px; border: none;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  #bulk-bar .btn-prev { background: #334155; color: #cbd5e1; }
+  #bulk-bar .btn-prev:hover { background: #475569; }
+  #bulk-bar .btn-next { background: #2563eb; color: #fff; }
+  #bulk-bar .btn-next:hover { background: #1d4ed8; }
+  #bulk-bar .btn-cancel { background: none; border: none; color: #64748b; font-size: 18px; cursor: pointer; padding: 0 4px; }
+  #bulk-bar .sms-toggle-wrap { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748b; border-left: 1px solid #334155; padding-left: 12px; }
+  #bulk-bar .sms-toggle-wrap.on { color: #93c5fd; }
+  #bulk-bar .toggle-switch { position: relative; width: 32px; height: 18px; cursor: pointer; }
+  #bulk-bar .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  #bulk-bar .toggle-track { position: absolute; inset: 0; background: #475569; border-radius: 99px; transition: background .2s; }
+  #bulk-bar .toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform .2s; }
+  #bulk-bar .toggle-switch input:checked ~ .toggle-track { background: #2563eb; }
+  #bulk-bar .toggle-switch input:checked ~ .toggle-thumb { transform: translateX(14px); }
 
   /* 검색 */
   .search-row { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -70,6 +101,7 @@
     <table class="tbl">
       <thead>
         <tr>
+          <th style="width:32px;text-align:center"><input type="checkbox" class="sel-chk" id="chk-all"></th>
           <th>주문번호</th>
           <th>접수일</th>
           <th>진행</th>
@@ -90,6 +122,22 @@
   </div>
 
   <div id="empty-msg" style="display:none" class="empty">해당하는 주문이 없습니다</div>
+</div>
+
+<!-- 하단 플로팅 바 -->
+<div id="bulk-bar" class="hidden">
+  <span class="bar-count" id="bar-count">0건 선택</span>
+  <button class="btn-prev" id="btn-bulk-prev">← 이전단계</button>
+  <button class="btn-next" id="btn-bulk-next">다음단계 →</button>
+  <label class="sms-toggle-wrap" id="list-sms-wrap" title="주문확정 시 문자 발송">
+    <label class="toggle-switch">
+      <input type="checkbox" id="list-sms-toggle">
+      <div class="toggle-track"></div>
+      <div class="toggle-thumb"></div>
+    </label>
+    <span id="list-sms-label">문자 OFF</span>
+  </label>
+  <button class="btn-cancel" id="btn-bulk-cancel" title="선택 해제">✕</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -191,6 +239,7 @@ function renderOrders() {
     const tr = document.createElement('tr');
     tr.className = `status-${o.status}`;
     tr.innerHTML = `
+      <td style="text-align:center"><input type="checkbox" class="sel-chk row-chk" data-id="${o.id}" data-status="${o.status}"></td>
       <td class="order-no">${o.order_no || '#' + o.id}</td>
       <td style="color:#9ca3af;white-space:nowrap">${date}</td>
       <td><span class="badge badge-${o.status}">${o.status}</span></td>
@@ -216,7 +265,14 @@ function renderOrders() {
     tr.querySelector('.print-chk').addEventListener('click', (e) => {
       togglePrinted(e, o.id, printed);
     });
-    tr.addEventListener('click', () => { window.location.href = `order-detail.html?id=${o.id}`; });
+    tr.querySelector('.row-chk').addEventListener('click', (e) => {
+      e.stopPropagation();
+      updateBulkBar();
+    });
+    tr.addEventListener('click', (e) => {
+      if (e.target.type === 'checkbox') return;
+      window.location.href = `order-detail.html?id=${o.id}`;
+    });
     tbody.appendChild(tr);
   });
 }
@@ -291,6 +347,96 @@ document.getElementById('btn-excel').addEventListener('click', async () => {
   XLSX.utils.book_append_sheet(wb, ws, '엑셀파일첫행-제목있음');
   XLSX.writeFile(wb, `송장출력_${new Date().toISOString().slice(0,10)}.xls`);
   showToast(`✅ ${orders.length}건 엑셀 저장됨`);
+});
+
+// ── 전체선택 ──────────────────────────────────────────
+document.getElementById('chk-all').addEventListener('click', (e) => {
+  document.querySelectorAll('.row-chk').forEach(chk => { chk.checked = e.target.checked; });
+  updateBulkBar();
+});
+
+// ── 플로팅 바 ─────────────────────────────────────────
+const STATUSES = ['주문입력','주문확정','주문출력','송장출력','배송완료','수금완료'];
+
+function getSelected() {
+  return [...document.querySelectorAll('.row-chk:checked')].map(chk => ({
+    id: chk.dataset.id,
+    status: chk.dataset.status,
+  }));
+}
+
+function updateBulkBar() {
+  const selected = getSelected();
+  const bar = document.getElementById('bulk-bar');
+  if (!selected.length) { bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  document.getElementById('bar-count').textContent = `${selected.length}건 선택`;
+
+  const statusCounts = {};
+  selected.forEach(s => { statusCounts[s.status] = (statusCounts[s.status] || 0) + 1; });
+  const dominant = Object.entries(statusCounts).sort((a, b) => b[1] - a[1])[0][0];
+  const idx = STATUSES.indexOf(dominant);
+
+  const btnPrev = document.getElementById('btn-bulk-prev');
+  const btnNext = document.getElementById('btn-bulk-next');
+  btnPrev.textContent = idx > 0 ? `← ${STATUSES[idx - 1]}` : '← 이전단계';
+  btnNext.textContent = idx < STATUSES.length - 1 ? `${STATUSES[idx + 1]} →` : '다음단계 →';
+  btnPrev.disabled = idx === 0;
+  btnNext.disabled = idx === STATUSES.length - 1;
+}
+
+async function bulkChangeStatus(direction) {
+  const selected = getSelected();
+  if (!selected.length) return;
+
+  const btn = direction === 'next' ? document.getElementById('btn-bulk-next') : document.getElementById('btn-bulk-prev');
+  btn.disabled = true;
+  btn.textContent = '처리 중...';
+
+  let ok = 0;
+  for (const { id, status } of selected) {
+    const idx = STATUSES.indexOf(status);
+    const nextIdx = direction === 'next' ? idx + 1 : idx - 1;
+    if (nextIdx < 0 || nextIdx >= STATUSES.length) continue;
+    const newStatus = STATUSES[nextIdx];
+    const smsOn = document.getElementById('list-sms-toggle').checked;
+    const endpoint = (newStatus === '주문확정' && smsOn)
+      ? `${API}/api/orders/${id}/confirm`
+      : `${API}/api/orders/${id}/status`;
+    await fetch(endpoint, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    ok++;
+  }
+
+  showToast(`✅ ${ok}건 처리 완료`);
+  document.getElementById('bulk-bar').classList.add('hidden');
+  await loadOrders();
+}
+
+// ── SMS 토글 (localStorage 공유) ─────────────────────
+const listSmsToggle = document.getElementById('list-sms-toggle');
+const listSmsLabel  = document.getElementById('list-sms-label');
+const listSmsWrap   = document.getElementById('list-sms-wrap');
+
+function applyListSmsToggle() {
+  const on = listSmsToggle.checked;
+  listSmsLabel.textContent = on ? '문자 ON' : '문자 OFF';
+  listSmsWrap.classList.toggle('on', on);
+  localStorage.setItem('sms_send_enabled', on ? '1' : '0');
+}
+listSmsToggle.checked = localStorage.getItem('sms_send_enabled') === '1';
+applyListSmsToggle();
+listSmsToggle.addEventListener('change', applyListSmsToggle);
+
+document.getElementById('btn-bulk-next').addEventListener('click', () => bulkChangeStatus('next'));
+document.getElementById('btn-bulk-prev').addEventListener('click', () => bulkChangeStatus('prev'));
+document.getElementById('btn-bulk-cancel').addEventListener('click', () => {
+  document.querySelectorAll('.row-chk').forEach(chk => { chk.checked = false; });
+  document.getElementById('chk-all').checked = false;
+  document.getElementById('bulk-bar').classList.add('hidden');
 });
 
 loadOrders();

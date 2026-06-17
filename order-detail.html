@@ -9,6 +9,17 @@
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { background: #f9fafb; padding: 7px 10px; text-align: left; font-size: 12px; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
   td { padding: 8px 10px; border-bottom: 1px solid #f3f4f6; }
+
+  /* SMS 토글 */
+  .sms-toggle-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7280; }
+  .sms-toggle-wrap.on { color: #2563eb; }
+  .toggle-switch { position: relative; width: 36px; height: 20px; cursor: pointer; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-track { position: absolute; inset: 0; background: #d1d5db; border-radius: 99px; transition: background .2s; }
+  .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px;
+    background: #fff; border-radius: 50%; transition: transform .2s; }
+  .toggle-switch input:checked ~ .toggle-track { background: #2563eb; }
+  .toggle-switch input:checked ~ .toggle-thumb { transform: translateX(16px); }
 </style>
 </head>
 <body>
@@ -22,7 +33,17 @@
   <div class="card">
     <h2>진행 상태</h2>
     <div class="status-flow" id="status-flow"></div>
-    <div class="btn-row" style="margin-top:16px" id="status-btns"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:8px">
+      <div class="btn-row" id="status-btns"></div>
+      <label class="sms-toggle-wrap" id="sms-toggle-wrap" title="주문확정 시 문자 발송 여부">
+        <label class="toggle-switch">
+          <input type="checkbox" id="sms-toggle">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+        <span id="sms-toggle-label">문자 OFF</span>
+      </label>
+    </div>
   </div>
 
   <!-- 주문 정보 -->
@@ -267,11 +288,18 @@ async function updateStatus(status) {
 }
 
 async function confirmOrder() {
-  await fetch(`${API}/api/orders/${orderId}/confirm`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  showToast('✅ 주문확정 및 문자 발송 등록 완료');
+  const smsOn = document.getElementById('sms-toggle').checked;
+  if (smsOn) {
+    await fetch(`${API}/api/orders/${orderId}/confirm`, { method: 'PUT', headers: { 'Content-Type': 'application/json' } });
+    showToast('✅ 주문확정 및 문자 발송 등록 완료');
+  } else {
+    await fetch(`${API}/api/orders/${orderId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: '주문확정' }),
+    });
+    showToast('✅ 주문확정 (문자 미발송)');
+  }
   await loadOrder();
 }
 
@@ -343,6 +371,22 @@ document.getElementById('btn-print').addEventListener('click', () => {
 document.getElementById('btn-edit').addEventListener('click', () => {
   window.location.href = `order-edit.html?id=${orderId}`;
 });
+
+// ── SMS 토글 ──────────────────────────────────────────
+const smsToggle = document.getElementById('sms-toggle');
+const smsLabel  = document.getElementById('sms-toggle-label');
+const smsWrap   = document.getElementById('sms-toggle-wrap');
+
+function applySmsToggle() {
+  const on = smsToggle.checked;
+  smsLabel.textContent = on ? '문자 ON' : '문자 OFF';
+  smsWrap.classList.toggle('on', on);
+  localStorage.setItem('sms_send_enabled', on ? '1' : '0');
+}
+
+smsToggle.checked = localStorage.getItem('sms_send_enabled') === '1';
+applySmsToggle();
+smsToggle.addEventListener('change', applySmsToggle);
 
 loadOrder();
 </script>

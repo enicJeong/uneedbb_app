@@ -47,6 +47,25 @@
   .badge-발송중  { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
   .badge-완료    { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
   .badge-실패    { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+  tr.sms-selected td { background: #eff6ff !important; }
+  tr.drag-over td { background: #dbeafe !important; }
+
+  /* 일괄삭제 바 */
+  #sms-bulk-bar {
+    position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%);
+    background: #1e293b; color: #fff; border-radius: 12px;
+    padding: 10px 16px; display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3); z-index: 150;
+    font-size: 13px; font-weight: 600; white-space: nowrap;
+    transition: opacity .2s, transform .2s;
+  }
+  #sms-bulk-bar.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(12px); }
+  #sms-bulk-bar .bar-count { color: #93c5fd; }
+  #sms-bulk-bar .btn-del-bulk { padding: 6px 14px; border-radius: 8px; border: none;
+    background: #dc2626; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+  #sms-bulk-bar .btn-del-bulk:hover { background: #b91c1c; }
+  #sms-bulk-bar .btn-cancel { background: none; border: none; color: #64748b; font-size: 18px; cursor: pointer; padding: 0 4px; }
 </style>
 </head>
 <body>
@@ -91,6 +110,12 @@
   </div>
 
   <div id="empty-msg" style="display:none" class="empty">해당하는 문자가 없습니다</div>
+</div>
+
+<div id="sms-bulk-bar" class="hidden">
+  <span class="bar-count" id="sms-bar-count">0건 선택</span>
+  <button class="btn-del-bulk" id="btn-sms-bulk-del">🗑 일괄삭제</button>
+  <button class="btn-cancel" id="btn-sms-bulk-cancel">✕</button>
 </div>
 
 <!-- 수정 모달 -->
@@ -154,6 +179,7 @@ function renderTable() {
 
   filtered.forEach(item => {
     const tr = document.createElement('tr');
+    tr.dataset.id = item.id;
     tr.innerHTML = `
       <td style="color:#9ca3af">${item.id}</td>
       <td><span class="badge badge-${item.status}">${item.status}</span></td>
@@ -224,6 +250,77 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
 });
 
 document.getElementById('btn-refresh').addEventListener('click', load);
+
+// ── 드래그 선택 ───────────────────────────────────────
+let dragStartIdx = null;
+let isDragging = false;
+let selectedIds = new Set();
+
+function getRows() { return [...document.querySelectorAll('#sms-tbody tr')]; }
+
+function applySelection() {
+  getRows().forEach(tr => {
+    const id = +tr.dataset.id;
+    tr.classList.toggle('sms-selected', selectedIds.has(id));
+  });
+  const bar = document.getElementById('sms-bulk-bar');
+  if (selectedIds.size) {
+    bar.classList.remove('hidden');
+    document.getElementById('sms-bar-count').textContent = `${selectedIds.size}건 선택`;
+  } else {
+    bar.classList.add('hidden');
+  }
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  applySelection();
+}
+
+document.getElementById('sms-tbody').addEventListener('mousedown', e => {
+  const tr = e.target.closest('tr');
+  if (!tr || e.target.closest('button')) return;
+  isDragging = true;
+  dragStartIdx = getRows().indexOf(tr);
+  // 클릭만이면 토글
+  const id = +tr.dataset.id;
+  if (selectedIds.has(id)) selectedIds.delete(id);
+  else selectedIds.add(id);
+  applySelection();
+  e.preventDefault();
+});
+
+document.getElementById('sms-tbody').addEventListener('mouseover', e => {
+  if (!isDragging) return;
+  const tr = e.target.closest('tr');
+  if (!tr) return;
+  const rows = getRows();
+  const endIdx = rows.indexOf(tr);
+  const [from, to] = dragStartIdx <= endIdx ? [dragStartIdx, endIdx] : [endIdx, dragStartIdx];
+  rows.forEach((row, i) => {
+    const id = +row.dataset.id;
+    if (i >= from && i <= to) selectedIds.add(id);
+  });
+  applySelection();
+});
+
+document.addEventListener('mouseup', () => { isDragging = false; });
+
+document.getElementById('btn-sms-bulk-del').addEventListener('click', async () => {
+  if (!selectedIds.size) return;
+  if (!confirm(`${selectedIds.size}건을 삭제할까요?`)) return;
+  const btn = document.getElementById('btn-sms-bulk-del');
+  btn.disabled = true;
+  for (const id of selectedIds) {
+    await fetch(`${API}/api/sms-queue/${id}`, { method: 'DELETE' });
+  }
+  showToast(`🗑 ${selectedIds.size}건 삭제됨`);
+  clearSelection();
+  await load();
+  btn.disabled = false;
+});
+
+document.getElementById('btn-sms-bulk-cancel').addEventListener('click', clearSelection);
 
 load();
 </script>
