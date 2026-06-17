@@ -204,17 +204,25 @@ function renderItems(items, onUpdate) {
       `<option value="${p.name}" data-price="${p.price}" ${p.name === item.product ? 'selected' : ''}>${p.name}</option>`
     ).join('');
     const tr = document.createElement('tr');
+    const productPresets = BB_CONFIG.PRODUCTS.map(p =>
+      `<button class="product-preset" data-idx="${i}" data-name="${p.name}" data-price="${p.price}" style="padding:3px 10px;border:1px solid ${item.product===p.name?'#2563eb':'#e5e7eb'};border-radius:4px;background:${item.product===p.name?'#eff6ff':'#fff'};color:${item.product===p.name?'#2563eb':'#6b7280'};font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;width:100%;text-align:left">${p.name}</button>`
+    ).join('');
     tr.innerHTML = `
-      <td><select class="item-product" data-idx="${i}">${opts}</select></td>
+      <td>
+        <div style="display:flex;flex-direction:column;gap:3px">${productPresets}</div>
+        <select class="item-product" data-idx="${i}" style="display:none">${opts}</select>
+      </td>
       <td><input type="number" class="item-price" data-idx="${i}" value="${item.unit_price}" min="0" step="1000" style="width:90px"></td>
       <td>
         <div style="display:flex;align-items:center;gap:4px">
           <button class="qty-btn qty-minus" data-idx="${i}" style="width:28px;height:28px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;font-size:16px;cursor:pointer;line-height:1">−</button>
           <span class="qty-display" data-idx="${i}" style="min-width:28px;text-align:center;font-weight:700;font-size:14px">${item.qty}</span>
           <button class="qty-btn qty-plus" data-idx="${i}" style="width:28px;height:28px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;font-size:16px;cursor:pointer;line-height:1">+</button>
-          <div style="display:flex;gap:3px;margin-left:4px">
-            ${[1,2,3,4,5,6,8,10].map(n =>
-              `<button class="qty-preset" data-idx="${i}" data-val="${n}" style="padding:2px 6px;border:1px solid ${item.qty===n?'#2563eb':'#e5e7eb'};border-radius:4px;background:${item.qty===n?'#eff6ff':'#fff'};color:${item.qty===n?'#2563eb':'#6b7280'};font-size:11px;font-weight:600;cursor:pointer">${n}</button>`
+          <div style="display:flex;flex-direction:column;gap:3px;margin-left:4px">
+            ${[[1,2,3,4,5],[6,7,8,9,10]].map(row =>
+              `<div style="display:flex;gap:3px">${row.map(n =>
+                `<button class="qty-preset" data-idx="${i}" data-val="${n}" style="padding:4px 12px;border:1px solid ${item.qty===n?'#2563eb':'#e5e7eb'};border-radius:4px;background:${item.qty===n?'#eff6ff':'#fff'};color:${item.qty===n?'#2563eb':'#6b7280'};font-size:22px;font-weight:600;cursor:pointer">${n}</button>`
+              ).join('')}</div>`
             ).join('')}
           </div>
         </div>
@@ -223,6 +231,15 @@ function renderItems(items, onUpdate) {
     tbody.appendChild(tr);
   });
 
+  document.querySelectorAll('.product-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = +btn.dataset.idx;
+      items[i].product = btn.dataset.name;
+      items[i].unit_price = +btn.dataset.price;
+      renderItems(items, onUpdate);
+      if (onUpdate) onUpdate(items);
+    });
+  });
   document.querySelectorAll('.item-product').forEach(sel => {
     sel.addEventListener('change', e => {
       const i = +e.target.dataset.idx;

@@ -2,8 +2,8 @@ const BB_CONFIG = {
   API: 'https://bb-api.enic.workers.dev',
 
   PRODUCTS: [
-    { name: '(3.0만)', price: 30000 },
     { name: '(3.5만)', price: 35000 },
+    { name: '(3.0만)', price: 30000 },
     { name: '(2.5만)', price: 25000 },
     { name: '(2.0만)', price: 20000 },
     { name: '(즙)',    price: 0 },
