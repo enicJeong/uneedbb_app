@@ -219,7 +219,7 @@ export default {
           LEFT JOIN customers c ON o.orderer_id  = c.id
           LEFT JOIN customers r ON o.recipient_id = r.id
           LEFT JOIN addresses a ON o.address_id   = a.id
-          WHERE o.status = ?
+          WHERE o.status = ? AND o.status != '삭제'
           ORDER BY o.order_no ASC
         `).bind(status).all();
         return json(rows.results);
@@ -267,7 +267,7 @@ export default {
               LEFT JOIN customers c ON o.orderer_id  = c.id
               LEFT JOIN customers r ON o.recipient_id = r.id
               LEFT JOIN addresses a ON o.address_id   = a.id
-              WHERE o.status = ?
+              WHERE o.status = ? AND o.status != '삭제'
               ORDER BY o.order_no DESC
             `).bind(status).all()
           : await env.DB.prepare(`
@@ -279,6 +279,7 @@ export default {
               LEFT JOIN customers c ON o.orderer_id  = c.id
               LEFT JOIN customers r ON o.recipient_id = r.id
               LEFT JOIN addresses a ON o.address_id   = a.id
+              WHERE o.status != '삭제'
               ORDER BY o.order_no DESC
             `).all();
         return json(rows.results);
@@ -406,6 +407,15 @@ export default {
             ).bind(id, item.product, item.unit_price, item.qty).run();
           }
         }
+        return json({ ok: true });
+      }
+
+      // ── 주문 삭제 (소프트) ─────────────────────────────
+      if (path.match(/^\/api\/orders\/\d+$/) && method === 'DELETE') {
+        const id = path.split('/')[3];
+        await env.DB.prepare(
+          `UPDATE orders SET status='삭제', updated_at=datetime('now','localtime') WHERE id=?`
+        ).bind(id).run();
         return json({ ok: true });
       }
 

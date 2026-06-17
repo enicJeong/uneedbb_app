@@ -72,12 +72,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 
 /* 진행상태 */
-.badge-주문입력 { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
-.badge-주문확정 { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
-.badge-주문출력 { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
-.badge-송장출력 { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
-.badge-배송완료 { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
-.badge-수금완료 { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+.badge-주문입력 { background: #fff;    color: #111;    border: 1px solid #d1d5db; }
+.badge-주문확정 { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+.badge-주문출력 { background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
+.badge-송장출력 { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
+.badge-배송완료 { background: #f1f5f9; color: #9ca3af; border: 1px solid #e5e7eb; }
+.badge-수금완료 { background: #1e293b; color: #f1f5f9; border: 1px solid #334155; }
 
 /* 수금 */
 .badge-미수     { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
@@ -220,12 +220,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 /* ── 주문 카드 (모바일) ────────────────────────────────── */
 .order-card { background: #fff; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.07); cursor: pointer; transition: box-shadow .15s; }
 .order-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,.12); }
-.order-card.status-주문입력 { border-left: 4px solid #94a3b8; background: rgba(148,163,184,.08); }
-.order-card.status-주문확정 { border-left: 4px solid #3b82f6; background: rgba(59,130,246,.08); }
-.order-card.status-주문출력 { border-left: 4px solid #f59e0b; background: rgba(245,158,11,.08); }
-.order-card.status-송장출력 { border-left: 4px solid #8b5cf6; background: rgba(139,92,246,.08); }
-.order-card.status-배송완료 { border-left: 4px solid #10b981; background: rgba(16,185,129,.08); }
-.order-card.status-수금완료 { border-left: 4px solid #065f46; background: rgba(6,95,70,.08); }
+.order-card.status-주문입력 { border-left: 4px solid #d1d5db; background: #fff; }
+.order-card.status-주문확정 { border-left: 4px solid #fde047; background: #fef9c3; }
+.order-card.status-주문출력 { border-left: 4px solid #16a34a; background: #dcfce7; }
+.order-card.status-송장출력 { border-left: 4px solid #f97316; background: #ffedd5; }
+.order-card.status-배송완료 { border-left: 4px solid #cbd5e1; background: #f1f5f9; }
+.order-card.status-수금완료 { border-left: 4px solid #1e293b; background: #e2e8f0; }
 .order-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
 .order-id  { font-size: 12px; color: #9ca3af; }
 .badges    { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -264,12 +264,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .tbl tbody tr { border-bottom: 1px solid #f3f4f6; cursor: pointer; transition: background .1s; }
 .tbl tbody tr:hover { background: #f8faff; }
 .tbl tbody tr:last-child { border-bottom: none; }
-.tbl tbody tr.status-주문입력 { background: rgba(148,163,184,.08); }
-.tbl tbody tr.status-주문확정 { background: rgba(59,130,246,.08); }
-.tbl tbody tr.status-주문출력 { background: rgba(245,158,11,.08); }
-.tbl tbody tr.status-송장출력 { background: rgba(139,92,246,.08); }
-.tbl tbody tr.status-배송완료 { background: rgba(16,185,129,.08); }
-.tbl tbody tr.status-수금완료 { background: rgba(6,95,70,.08); }
+.tbl tbody tr.status-주문입력 { background: #fff; }
+.tbl tbody tr.status-주문확정 { background: #fef9c3; }
+.tbl tbody tr.status-주문출력 { background: #dcfce7; }
+.tbl tbody tr.status-송장출력 { background: #ffedd5; }
+.tbl tbody tr.status-배송완료 { background: #f1f5f9; color: #9ca3af; }
+.tbl tbody tr.status-수금완료 { background: #e2e8f0; }
 .tbl td { padding: 9px 12px; vertical-align: middle; }
 .tbl td.order-no { font-weight: 700; color: #1d4ed8; white-space: nowrap; }
 .tbl td.names { font-weight: 600; }

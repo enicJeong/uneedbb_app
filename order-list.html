@@ -129,6 +129,7 @@
   <span class="bar-count" id="bar-count">0건 선택</span>
   <button class="btn-prev" id="btn-bulk-prev">← 이전단계</button>
   <button class="btn-next" id="btn-bulk-next">다음단계 →</button>
+  <button id="btn-bulk-del" style="padding:6px 14px;border-radius:8px;border:none;background:#dc2626;color:#fff;font-size:13px;font-weight:700;cursor:pointer">🗑 삭제</button>
   <label class="sms-toggle-wrap" id="list-sms-wrap" title="주문확정 시 문자 발송">
     <label class="toggle-switch">
       <input type="checkbox" id="list-sms-toggle">
@@ -434,6 +435,17 @@ listSmsToggle.addEventListener('change', applyListSmsToggle);
 
 document.getElementById('btn-bulk-next').addEventListener('click', () => bulkChangeStatus('next'));
 document.getElementById('btn-bulk-prev').addEventListener('click', () => bulkChangeStatus('prev'));
+document.getElementById('btn-bulk-del').addEventListener('click', async () => {
+  const selected = getSelected();
+  if (!selected.length) return;
+  if (!confirm(`선택한 ${selected.length}건을 삭제할까요?\n삭제된 주문은 목록에서 숨겨집니다.`)) return;
+  for (const { id } of selected) {
+    await fetch(`${API}/api/orders/${id}`, { method: 'DELETE' });
+  }
+  showToast(`🗑 ${selected.length}건 삭제됨`);
+  document.getElementById('bulk-bar').classList.add('hidden');
+  await loadOrders();
+});
 document.getElementById('btn-bulk-cancel').addEventListener('click', () => {
   document.querySelectorAll('.row-chk').forEach(chk => { chk.checked = false; });
   document.getElementById('chk-all').checked = false;
