@@ -29,6 +29,7 @@ function renderSelectedCustomer(divId, customer, onClear) {
       <div class="info">
         <div class="name">${customer.name}</div>
         <div class="phone">${customer.phone}</div>
+        ${customer.memo ? `<div style="font-size:11px;color:#f59e0b;font-weight:600;margin-top:2px">📝 ${customer.memo}</div>` : ''}
       </div>
       <button class="btn-clear-x" id="${divId}-clear">✕</button>
     </div>`;

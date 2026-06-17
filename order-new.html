@@ -286,7 +286,7 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
     order_no:      orderNo,
     orderer_id:    orderer.id,
     recipient_id:  recipientSame ? null : recipient?.id,
-    address_id:    selectedAddressId,
+    address_id:    deliveryType === '택배' ? selectedAddressId : null,
     delivery_type: deliveryType,
     priority,
     memo:          document.getElementById('memo').value,

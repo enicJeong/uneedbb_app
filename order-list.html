@@ -249,11 +249,12 @@ function renderOrders() {
       <td class="names">
         ${o.orderer_name}
         <div style="font-size:11px;color:#9ca3af">${o.orderer_phone || ''}</div>
+        ${o.orderer_memo ? `<div style="font-size:11px;color:#f59e0b;font-weight:600">📝 ${o.orderer_memo}</div>` : ''}
       </td>
       <td class="memo-cell">${o.memo || ''}</td>
       <td class="names">
         ${o.recipient_name
-          ? `${o.recipient_name}<div class="recip">${o.recipient_phone || ''}</div>`
+          ? `${o.recipient_name}<div class="recip">${o.recipient_phone || ''}</div>${o.recipient_memo ? `<div style="font-size:11px;color:#f59e0b;font-weight:600">📝 ${o.recipient_memo}</div>` : ''}`
           : '<span style="color:#d1d5db">—</span>'}
       </td>
       <td><span class="badge badge-${o.delivery_type}">${o.delivery_type}</span></td>

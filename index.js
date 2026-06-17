@@ -41,8 +41,8 @@ async function generateOrderNo(db) {
 async function insertDeliverySms(db, orderId) {
   const order = await db.prepare(`
     SELECT o.*,
-      c.name AS orderer_name, c.phone AS orderer_phone,
-      r.name AS recipient_name, r.phone AS recipient_phone
+      c.name AS orderer_name, c.phone AS orderer_phone, c.memo AS orderer_memo,
+      r.name AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo
     FROM orders o
     LEFT JOIN customers c ON o.orderer_id = c.id
     LEFT JOIN customers r ON o.recipient_id = r.id
@@ -211,8 +211,8 @@ export default {
         const status = url.searchParams.get('status') || '송장출력';
         const rows = await env.DB.prepare(`
           SELECT o.*,
-            c.name  AS orderer_name,  c.phone  AS orderer_phone,
-            r.name  AS recipient_name, r.phone AS recipient_phone,
+            c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
+            r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
             a.address,
             (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS total_qty
           FROM orders o
@@ -290,8 +290,8 @@ export default {
       if (path === '/api/orders/print-queue' && method === 'GET') {
         const rows = await env.DB.prepare(`
           SELECT o.*,
-            c.name  AS orderer_name,  c.phone  AS orderer_phone,
-            r.name  AS recipient_name, r.phone AS recipient_phone,
+            c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
+            r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
             a.address
           FROM orders o
           LEFT JOIN customers c ON o.orderer_id  = c.id
@@ -348,8 +348,8 @@ export default {
         const id = path.split('/')[3];
         const order = await env.DB.prepare(`
           SELECT o.*,
-            c.name  AS orderer_name,  c.phone  AS orderer_phone,
-            r.name  AS recipient_name, r.phone AS recipient_phone,
+            c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
+            r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
             a.address
           FROM orders o
           LEFT JOIN customers c ON o.orderer_id  = c.id
