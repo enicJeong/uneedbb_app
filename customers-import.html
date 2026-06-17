@@ -276,8 +276,7 @@ async function fetchGoogleContacts(label) {
   let googleContacts = [], pageToken = '', syncToken = localStorage.getItem(SYNC_TOKEN_KEY) || '';
   const isIncremental = !!syncToken;
 
-  document.getElementById('progress-label').textContent = isIncremental
-    ? '구글 변경분 조회 중...' : '구글 연락처 전체 조회 중...';
+  setStepCount(1, isIncremental ? '변경분 조회 중...' : '전체 조회 중...');
 
   do {
     let url = 'https://people.googleapis.com/v1/people/me/connections'

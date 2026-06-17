@@ -109,6 +109,7 @@
           <th>주문자</th>
           <th>메모</th>
           <th>수령자</th>
+          <th>상품</th>
           <th>배송</th>
           <th>주소</th>
           <th>택배송장</th>
@@ -258,6 +259,7 @@ function renderOrders() {
           ? `${o.recipient_name}<div class="recip">${o.recipient_phone || ''}</div>${o.recipient_memo ? `<div style="font-size:11px;color:#f59e0b;font-weight:600">📝 ${o.recipient_memo}</div>` : ''}`
           : '<span style="color:#d1d5db">—</span>'}
       </td>
+      <td style="font-size:12px;color:#374151;white-space:nowrap">${o.items_summary || '-'}</td>
       <td><span class="badge badge-${o.delivery_type}">${o.delivery_type}</span></td>
       <td class="addr-cell">${o.address || '-'}</td>
       <td style="white-space:nowrap;font-size:12px;color:#6b7280">${o.tracking_no || ''}</td>
