@@ -343,7 +343,7 @@ document.getElementById('btn-excel').addEventListener('click', async () => {
   const dataRows = orders.map(o => {
     const name  = o.recipient_name  || o.orderer_name;
     const phone = o.recipient_phone || o.orderer_phone;
-    return [name, '', o.address || '', phone, phone, o.total_qty || 1, 5000, '010', o.order_no || '', '', '생물,파손주의'];
+    return [name, '', o.address || '', phone, phone, 1, 5000, '010', o.order_no || '', '', '생물,파손주의'];
   });
 
   const wb = XLSX.utils.book_new();
