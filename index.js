@@ -528,6 +528,27 @@ export default {
         return json({ ok: true });
       }
 
+      // ── 문자 큐 상태 변경 ──────────────────────────────
+      if (path.match(/^\/api\/sms-queue\/\d+\/status$/) && method === 'PUT') {
+        const id = path.split('/')[3];
+        const { status } = await request.json();
+        await env.DB.prepare(
+          `UPDATE sms_queue SET status=?, updated_at=datetime('now','localtime') WHERE id=?`
+        ).bind(status, id).run();
+
+        if (status === '완료' || status === '실패') {
+          const q = await env.DB.prepare(`SELECT * FROM sms_queue WHERE id=?`).bind(id).first();
+          if (q) {
+            await env.DB.prepare(`
+              INSERT INTO sms_logs (queue_id, order_id, customer_id, phone, message, status, sent_at)
+              VALUES (?, ?, ?, ?, ?, ?, datetime('now','localtime'))
+            `).bind(q.id, q.order_id, q.customer_id, q.phone, q.message, status).run();
+          }
+        }
+
+        return json({ ok: true });
+      }
+
       // ── 문자 큐 삭제 ───────────────────────────────────
       if (path.match(/^\/api\/sms-queue\/\d+$/) && method === 'DELETE') {
         const id = path.split('/')[3];

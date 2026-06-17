@@ -34,22 +34,29 @@
   .t-input.match { border-color: #10b981; background: #f0fdf4; }
   .t-input.mismatch { border-color: #ef4444; background: #fff1f2; }
 
-  /* 주소 탭 */
-  .col-hint { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-  .col-tag { padding: 3px 10px; border-radius: 99px; background: #eff6ff; color: #1d4ed8;
-    font-size: 12px; font-weight: 600; border: 1px solid #bfdbfe; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
-  th { background: #f3f4f6; padding: 8px 10px; text-align: left; border-bottom: 1px solid #e5e7eb;
-    font-size: 12px; color: #6b7280; font-weight: 700; white-space: nowrap; }
-  td { padding: 7px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
-  tr:hover td { background: #fafbff; }
-  .cell-err  { background: #fff1f2; }
-  .cell-warn { background: #fffbeb; }
-  .editable { border: 1px solid transparent; border-radius: 4px; padding: 2px 4px;
-    min-width: 60px; display: inline-block; }
-  .editable:focus { border-color: #2563eb; outline: none; background: #fff; }
-  select.cell-select { padding: 3px 6px; border: 1px solid #d1d5db; border-radius: 5px;
-    font-size: 12px; font-family: inherit; background: #fff; }
+  /* 주소 탭 그리드 */
+  table.bulk-grid { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 900px; }
+  table.bulk-grid th { background: #f3f4f6; padding: 7px 8px; text-align: left;
+    border-bottom: 2px solid #e5e7eb; font-size: 11px; color: #6b7280; white-space: nowrap; }
+  table.bulk-grid td { padding: 2px 3px; border-bottom: 1px solid #f3f4f6; }
+  table.bulk-grid tr:hover td { background: #fafbff; }
+  table.bulk-grid td input, table.bulk-grid td select {
+    width: 100%; padding: 5px 7px; border: 1px solid transparent; border-radius: 4px;
+    font-size: 12px; font-family: inherit; background: transparent;
+  }
+  table.bulk-grid td input:focus, table.bulk-grid td select:focus {
+    border-color: #2563eb; background: #fff; outline: none;
+  }
+  table.bulk-grid td.g-err input  { background: #fff1f2; border-color: #fca5a5; }
+  table.bulk-grid td.g-warn input { background: #fffbeb; border-color: #fcd34d; }
+  .row-num { color: #d1d5db; font-size: 11px; text-align: center; width: 24px; }
+  .btn-del-row { background: none; border: none; color: #d1d5db; cursor: pointer; padding: 2px 5px; font-size: 14px; }
+  .btn-del-row:hover { color: #dc2626; }
+  .g-status { font-size: 11px; white-space: nowrap; text-align: center; }
+  .st-ok   { color: #16a34a; font-weight: 700; }
+  .st-err  { color: #dc2626; font-weight: 700; }
+  .progress-bar-wrap { height: 5px; background: #e5e7eb; border-radius: 3px; margin-top: 10px; overflow: hidden; display: none; }
+  .progress-bar { height: 100%; background: #2563eb; border-radius: 3px; transition: width .3s; }
 </style>
 </head>
 <body>
@@ -105,61 +112,48 @@
   <!-- 탭 2: 주소 일괄 입력                               -->
   <!-- ══════════════════════════════════════════════════ -->
   <div id="tab-bulk" style="display:none">
-    <p class="desc">엑셀에서 아래 순서대로 열을 복사해서 붙여넣으세요. 헤더 행은 제외하세요.
-      <button class="btn btn-outline" id="btn-template-dl" style="margin-left:12px;font-size:12px;padding:4px 10px">📥 템플릿 다운로드</button>
-    </p>
-
-    <div class="card">
-      <h2>① 엑셀 붙여넣기</h2>
-      <div class="col-hint">
-        <span class="col-tag">A. 주문일 (mm-dd)</span>
-        <span class="col-tag">B. 주문번호</span>
-        <span class="col-tag">C. 주문자 이름</span>
-        <span class="col-tag">D. 주문자 전화번호</span>
-        <span class="col-tag">E. 메모</span>
-        <span class="col-tag">F. 상품명</span>
-        <span class="col-tag">G. 수량</span>
-        <span class="col-tag">H. 배송방법</span>
-        <span class="col-tag">I. 수령자 이름</span>
-        <span class="col-tag">J. 수령자 전화번호</span>
-        <span class="col-tag">K. 수령자 주소</span>
+    <div class="card" style="padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <h2 style="margin:0">주소 일괄 입력</h2>
+        <span style="font-size:12px;color:#9ca3af">엑셀에서 복사 후 표에 붙여넣기 (주문일·주문번호·주문자명·주문자전화·메모·상품·수량·배송·수령자명·수령자전화·주소)</span>
       </div>
-      <textarea id="paste-area" rows="10" placeholder="엑셀에서 복사(Ctrl+C) 후 여기에 붙여넣기(Ctrl+V)"></textarea>
-      <div class="gap" style="margin-top:10px">
-        <button class="btn btn-primary" id="btn-parse">파싱 &amp; 미리보기</button>
-        <button class="btn btn-outline" id="btn-clear">초기화</button>
-        <span class="status-msg" id="parse-status"></span>
-      </div>
-    </div>
-
-    <div class="card" id="preview-card" style="display:none">
-      <h2>② 미리보기 &amp; 수정 <span id="preview-count"></span></h2>
-      <p style="font-size:12px;color:#6b7280;margin-bottom:8px">셀을 클릭하면 직접 수정할 수 있어요. 빨간 셀은 오류, 노란 셀은 주의.</p>
-      <div class="tbl-wrap">
-        <table>
+      <div style="overflow-x:auto">
+        <table class="bulk-grid" id="bulk-grid">
           <thead>
             <tr>
-              <th>#</th>
-              <th>주문일</th>
-              <th>주문번호</th>
-              <th>주문자</th>
-              <th>메모</th>
-              <th>상품/수량</th>
-              <th>배송</th>
-              <th>수령자</th>
-              <th>주소</th>
-              <th>상태</th>
+              <th class="row-num">#</th>
+              <th style="min-width:70px">주문일</th>
+              <th style="min-width:100px">주문번호</th>
+              <th style="min-width:80px">주문자명</th>
+              <th style="min-width:110px">주문자전화</th>
+              <th style="min-width:80px">메모</th>
+              <th style="min-width:80px">상품</th>
+              <th style="width:50px">수량</th>
+              <th style="min-width:70px">배송</th>
+              <th style="min-width:80px">수령자명</th>
+              <th style="min-width:110px">수령자전화</th>
+              <th style="min-width:180px">주소</th>
+              <th style="width:50px">상태</th>
+              <th style="width:28px"></th>
             </tr>
           </thead>
-          <tbody id="preview-body"></tbody>
+          <tbody id="bulk-tbody"></tbody>
         </table>
       </div>
-      <div class="gap" style="margin-top:16px">
-        <button class="btn btn-success" id="btn-import">DB에 저장</button>
-        <span class="status-msg" id="import-status"></span>
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-outline" id="btn-bulk-add">+ 행 추가</button>
+        <button class="btn btn-outline" id="btn-bulk-clear">전체 초기화</button>
+        <button class="btn btn-outline" id="btn-template-dl" style="font-size:12px">📥 템플릿</button>
+        <span id="bulk-summary" style="font-size:12px;color:#6b7280;margin-left:auto"></span>
+      </div>
+      <div class="progress-bar-wrap" id="bulk-progress-wrap">
+        <div class="progress-bar" id="bulk-progress-bar" style="width:0%"></div>
       </div>
     </div>
-
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px">
+      <button class="btn-submit" id="btn-bulk-import" style="margin-top:0;flex:1">DB에 저장</button>
+      <span class="status-msg" id="import-status"></span>
+    </div>
     <div id="result-wrap" style="display:none"></div>
   </div>
 </div>
@@ -345,24 +339,27 @@ document.getElementById('btn-t-save').addEventListener('click', async () => {
 });
 
 // ════════════════════════════════════════════════════
-// 탭 2: 주소 일괄 입력
+// 탭 2: 주소 일괄 입력 (직접 편집 그리드)
 // ════════════════════════════════════════════════════
-let rows = [];
+let bulkRows = [];
+// 그리드 컬럼 순서 (셀 paste 매핑용)
+const BULK_FIELDS = ['created_at','order_no','orderer_name','orderer_phone','memo','product','qty','delivery_type','recipient_name','recipient_phone','address'];
 
-function parseItems(productText, qtyText) {
-  const qty = parseInt(qtyText) || 1;
-  if (!productText) return [{ product: PRODUCTS[0].name, unit_price: PRODUCTS[0].price, qty }];
-  const p = productText.trim();
-  if (p.includes('즙')) return [{ product: '(즙)', unit_price: 0, qty }];
-  let price = null;
-  for (const [k, v] of Object.entries(PRICE_MAP)) {
-    if (p.includes(k)) { price = v; break; }
-  }
-  if (price !== null) {
-    const product = PRODUCTS.find(pr => pr.price === price)?.name || PRODUCTS[0].name;
-    return [{ product, unit_price: price, qty }];
-  }
-  return [{ product: PRODUCTS[0].name, unit_price: PRODUCTS[0].price, qty }];
+function newBulkRow(data = {}) {
+  return {
+    created_at: data.created_at || '',
+    order_no: data.order_no || '',
+    orderer_name: data.orderer_name || '',
+    orderer_phone: data.orderer_phone || '',
+    memo: data.memo || '',
+    product: data.product || PRODUCTS[0].name,
+    qty: data.qty || 1,
+    delivery_type: data.delivery_type || '택배',
+    recipient_name: data.recipient_name || '',
+    recipient_phone: data.recipient_phone || '',
+    address: data.address || '',
+    status: '',
+  };
 }
 
 function parseDelivery(text) {
@@ -373,243 +370,260 @@ function parseDelivery(text) {
   return '택배';
 }
 
-document.getElementById('btn-parse').addEventListener('click', async () => {
-  const raw = document.getElementById('paste-area').value.trim();
-  if (!raw) { setStatus('parse-status', '데이터를 붙여넣으세요', true); return; }
-  setStatus('parse-status', '파싱 중...');
-  rows = [];
+function parseProduct(productText) {
+  if (!productText) return PRODUCTS[0].name;
+  const p = productText.trim();
+  if (p.includes('즙')) return '(즙)';
+  for (const [k] of Object.entries(PRICE_MAP)) {
+    if (p.includes(k)) {
+      const found = PRODUCTS.find(pr => pr.price === PRICE_MAP[k]);
+      if (found) return found.name;
+    }
+  }
+  return PRODUCTS[0].name;
+}
 
-  const lines = raw.split('\n').filter(l => l.trim());
-  for (const line of lines) {
-    const cols = line.split('\t').map(c => c.trim());
-    const rawDate = cols[0] || '';
+function renderBulkGrid() {
+  const tbody = document.getElementById('bulk-tbody');
+  tbody.innerHTML = '';
+  bulkRows.forEach((row, i) => {
+    const stClass = row.status === '완료' ? 'st-ok' : row.status === '오류' ? 'st-err' : '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="row-num">${i + 1}</td>
+      <td><input class="g-created_at" data-i="${i}" value="${esc(row.created_at)}" placeholder="06-16"></td>
+      <td><input class="g-order_no" data-i="${i}" value="${esc(row.order_no)}" placeholder="26주문-001"></td>
+      <td><input class="g-orderer_name" data-i="${i}" value="${esc(row.orderer_name)}" placeholder="이름"></td>
+      <td><input class="g-orderer_phone" data-i="${i}" value="${esc(row.orderer_phone)}" placeholder="01012345678"></td>
+      <td><input class="g-memo" data-i="${i}" value="${esc(row.memo)}" placeholder="메모"></td>
+      <td><select class="g-product" data-i="${i}">
+        ${PRODUCTS.map(p => `<option ${p.name === row.product ? 'selected' : ''}>${p.name}</option>`).join('')}
+      </select></td>
+      <td><input class="g-qty" data-i="${i}" type="number" value="${row.qty}" min="1" style="width:44px;text-align:center"></td>
+      <td><select class="g-delivery" data-i="${i}">
+        ${DELIVERY_TYPES.map(d => `<option ${d === row.delivery_type ? 'selected' : ''}>${d}</option>`).join('')}
+      </select></td>
+      <td><input class="g-recipient_name" data-i="${i}" value="${esc(row.recipient_name)}" placeholder="이름"></td>
+      <td><input class="g-recipient_phone" data-i="${i}" value="${esc(row.recipient_phone)}" placeholder="01012345678"></td>
+      <td><input class="g-address" data-i="${i}" value="${esc(row.address)}" placeholder="주소"></td>
+      <td class="g-status"><span class="${stClass}">${row.status || ''}</span></td>
+      <td><button class="btn-del-row" data-i="${i}">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+
+  // 셀 변경 이벤트
+  const fields = ['created_at','order_no','orderer_name','orderer_phone','memo','qty','recipient_name','recipient_phone','address'];
+  fields.forEach(f => {
+    tbody.querySelectorAll(`.g-${f}`).forEach(el => {
+      el.addEventListener('input', e => { bulkRows[+e.target.dataset.i][f] = e.target.value; updateBulkSummary(); });
+      // 셀 붙여넣기: 시작 셀 기준으로 오른쪽 컬럼 + 아래 행 채우기
+      el.addEventListener('paste', e => {
+        const text = e.clipboardData.getData('text');
+        const lines = text.trim().split('\n').map(s => s.trimEnd()).filter(Boolean);
+        if (lines.length <= 1 && !lines[0]?.includes('\t')) return; // 단일 값은 기본 동작
+        e.preventDefault();
+        e.stopPropagation();
+        const startRow = +el.dataset.i;
+        const startCol = BULK_FIELDS.indexOf(f);
+        if (startCol === -1) return;
+        // 행이 부족하면 추가
+        while (bulkRows.length < startRow + lines.length) bulkRows.push(newBulkRow());
+        lines.forEach((line, rowOffset) => {
+          const cols = line.split('\t');
+          cols.forEach((val, colOffset) => {
+            const field = BULK_FIELDS[startCol + colOffset];
+            if (field) bulkRows[startRow + rowOffset][field] = val.trim();
+          });
+        });
+        renderBulkGrid();
+      });
+    });
+  });
+  tbody.querySelectorAll('.g-product').forEach(sel => {
+    sel.addEventListener('change', e => { bulkRows[+e.target.dataset.i].product = e.target.value; });
+  });
+  tbody.querySelectorAll('.g-delivery').forEach(sel => {
+    sel.addEventListener('change', e => { bulkRows[+e.target.dataset.i].delivery_type = e.target.value; });
+  });
+  tbody.querySelectorAll('.btn-del-row').forEach(btn => {
+    btn.addEventListener('click', e => { bulkRows.splice(+e.target.dataset.i, 1); renderBulkGrid(); });
+  });
+
+  updateBulkSummary();
+}
+
+function esc(v) { return String(v || '').replace(/"/g, '&quot;'); }
+
+function updateBulkSummary() {
+  const filled = bulkRows.filter(r => r.orderer_name || r.orderer_phone).length;
+  document.getElementById('bulk-summary').textContent =
+    bulkRows.length ? `${filled}/${bulkRows.length}행 입력` : '';
+}
+
+// 엑셀 붙여넣기: 표 어디서나 Ctrl+V
+document.getElementById('bulk-grid').addEventListener('paste', e => {
+  e.preventDefault();
+  const text = e.clipboardData.getData('text');
+  const lines = text.trim().split('\n').filter(l => l.trim());
+  const parsed = lines.map(line => {
+    const c = line.split('\t').map(s => s.trim());
+    const rawDate = c[0] || '';
     let created_at = '';
     if (rawDate) {
       const year = new Date().getFullYear();
       const parts = rawDate.replace(/\//g, '-').split('-');
-      if (parts.length === 2) {
-        created_at = `${year}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
-      } else { created_at = rawDate; }
+      created_at = parts.length === 2
+        ? `${year}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`
+        : rawDate;
     }
-    rows.push({
+    return newBulkRow({
       created_at,
-      order_no:         cols[1] || '',
-      orderer_name:     cols[2] || '',
-      orderer_phone:    (cols[3] || '').replace(/[^0-9]/g, ''),
-      memo:             cols[4] || '',
-      items_raw:        `${cols[5] || ''} ${cols[6] || ''}`.trim(),
-      delivery_type:    parseDelivery(cols[7] || ''),
-      recipient_name:   cols[8] || '',
-      recipient_phone:  (cols[9] || '').replace(/[^0-9]/g, ''),
-      address:          cols[10] || '',
-      items:            parseItems(cols[5] || '', cols[6] || ''),
-      orderer_id: null, recipient_id: null, address_id: null,
-      orderer_status: '', recipient_status: '',
-      order_no_dup: false, errors: [], warnings: [],
+      order_no:       c[1] || '',
+      orderer_name:   c[2] || '',
+      orderer_phone:  (c[3] || '').replace(/[^0-9]/g, ''),
+      memo:           c[4] || '',
+      product:        parseProduct(c[5] || ''),
+      qty:            parseInt(c[6]) || 1,
+      delivery_type:  parseDelivery(c[7] || ''),
+      recipient_name:  c[8] || '',
+      recipient_phone: (c[9] || '').replace(/[^0-9]/g, ''),
+      address:         c[10] || '',
     });
-  }
+  });
 
-  setStatus('parse-status', `${rows.length}행 파싱 완료, DB 조회 중...`);
-
-  for (const row of rows) {
-    row.errors = []; row.warnings = [];
-    if (!row.order_no) {
-      row.errors.push('주문번호 없음');
-    } else {
-      const dupRes = await fetch(`${API}/api/orders/check-no?order_no=${encodeURIComponent(row.order_no)}`);
-      const dup = await dupRes.json();
-      if (dup.exists) { row.order_no_dup = true; row.errors.push('주문번호 중복'); }
-    }
-    if (!row.orderer_phone) {
-      row.errors.push('주문자 전화번호 없음');
-    } else {
-      const res = await fetch(`${API}/api/customers?q=${encodeURIComponent(row.orderer_phone)}`);
-      const data = await res.json();
-      const match = data.find(c => c.phone === row.orderer_phone);
-      if (match) {
-        row.orderer_id = match.id; row.orderer_status = 'found';
-        const dRes = await fetch(`${API}/api/customers/${match.id}`);
-        const d = await dRes.json();
-        const addrMatch = (d.addresses || []).find(a => row.address && a.address.includes(row.address.slice(0, 10)));
-        if (addrMatch) { row.address_id = addrMatch.id; }
-        else if (row.address && row.delivery_type === '택배') { row.warnings.push('주소 신규 등록 필요'); }
-      } else {
-        row.orderer_status = 'new';
-        if (!row.orderer_name) row.errors.push('신규 주문자 이름 없음');
-        else row.warnings.push('주문자 신규 등록');
-      }
-    }
-    const hasDiffRecipient = row.recipient_name || row.recipient_phone;
-    if (hasDiffRecipient) {
-      if (!row.recipient_phone) {
-        row.warnings.push('수령자 전화번호 없음 — 주문자와 동일 처리');
-      } else {
-        const res = await fetch(`${API}/api/customers?q=${encodeURIComponent(row.recipient_phone)}`);
-        const data = await res.json();
-        const match = data.find(c => c.phone === row.recipient_phone);
-        if (match) { row.recipient_id = match.id; row.recipient_status = 'found'; }
-        else {
-          row.recipient_status = 'new';
-          if (!row.recipient_name) row.errors.push('신규 수령자 이름 없음');
-          else row.warnings.push('수령자 신규 등록');
-        }
-      }
-    }
+  // 포커스 행 기준 삽입
+  const focusedInput = document.activeElement;
+  const idx = focusedInput?.dataset?.i !== undefined ? +focusedInput.dataset.i : bulkRows.length - 1;
+  if (bulkRows[idx] && !bulkRows[idx].orderer_name && !bulkRows[idx].orderer_phone) {
+    bulkRows.splice(idx, 1, ...parsed);
+  } else {
+    bulkRows.splice(idx + 1, 0, ...parsed);
   }
-  renderPreview();
-  setStatus('parse-status', '');
+  renderBulkGrid();
 });
 
-function renderPreview() {
-  const tbody = document.getElementById('preview-body');
-  tbody.innerHTML = '';
-  let errCount = 0, warnCount = 0;
+document.getElementById('btn-bulk-add').addEventListener('click', () => {
+  bulkRows.push(newBulkRow()); renderBulkGrid();
+});
+document.getElementById('btn-bulk-clear').addEventListener('click', () => {
+  if (!confirm('전체 행을 초기화할까요?')) return;
+  bulkRows = [newBulkRow(), newBulkRow(), newBulkRow()];
+  renderBulkGrid();
+});
 
-  rows.forEach((row, i) => {
-    if (row.errors.length) errCount++;
-    else if (row.warnings.length) warnCount++;
+document.getElementById('btn-bulk-import').addEventListener('click', async () => {
+  const validRows = bulkRows.filter(r => r.orderer_name || r.orderer_phone);
+  if (!validRows.length) { showToast('입력된 행이 없습니다'); return; }
 
-    const itemText = row.items.map(it => `${it.product} ×${it.qty}`).join(', ');
-    const totalAmt = row.items.reduce((s, it) => s + it.unit_price * it.qty, 0);
-    const ordererBadge = row.orderer_status === 'found' ? '<span class="badge badge-ok">기존</span>'
-      : row.orderer_status === 'new' ? '<span class="badge badge-new">신규</span>' : '';
-    const recipBadge = row.recipient_status === 'found' ? '<span class="badge badge-ok">기존</span>'
-      : row.recipient_status === 'new' ? '<span class="badge badge-new">신규</span>' : '';
-    const statusBadge = row.errors.length
-      ? `<span class="badge badge-err">오류</span> <span style="font-size:11px;color:#991b1b">${row.errors.join(', ')}</span>`
-      : row.warnings.length
-        ? `<span class="badge badge-warn">주의</span> <span style="font-size:11px;color:#854d0e">${row.warnings.join(', ')}</span>`
-        : '<span class="badge badge-ok">정상</span>';
-    const orderNoClass = row.order_no_dup ? 'cell-err' : '';
-    const addrClass = (row.delivery_type === '택배' && !row.address_id && row.address) ? 'cell-warn' : '';
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="color:#9ca3af">${i + 1}</td>
-      <td style="color:#9ca3af;white-space:nowrap">${row.created_at || ''}</td>
-      <td class="${orderNoClass}">
-        <span class="editable" contenteditable="true" data-row="${i}" data-field="order_no">${row.order_no}</span>
-      </td>
-      <td>${ordererBadge}<div style="font-weight:600">${row.orderer_name}</div>
-        <div style="font-size:11px;color:#6b7280">${row.orderer_phone}</div></td>
-      <td style="color:#9ca3af;font-size:12px">
-        <span class="editable" contenteditable="true" data-row="${i}" data-field="memo">${row.memo}</span></td>
-      <td><div>${itemText}</div><div style="font-size:12px;color:#6b7280">${totalAmt.toLocaleString()}원</div></td>
-      <td><select class="cell-select" data-row="${i}" data-field="delivery_type">
-        ${DELIVERY_TYPES.map(d => `<option ${d === row.delivery_type ? 'selected' : ''}>${d}</option>`).join('')}
-      </select></td>
-      <td>${row.recipient_name || row.recipient_phone
-        ? `${recipBadge}<div style="font-weight:600">${row.recipient_name}</div><div style="font-size:11px;color:#6b7280">${row.recipient_phone}</div>`
-        : '<span style="color:#d1d5db">주문자 동일</span>'}</td>
-      <td class="${addrClass}" style="font-size:12px">
-        <span class="editable" contenteditable="true" data-row="${i}" data-field="address">${row.address}</span>
-        ${addrClass ? '<div style="font-size:11px;color:#b45309">신규 등록됨</div>' : ''}</td>
-      <td>${statusBadge}</td>`;
-    tbody.appendChild(tr);
-  });
-
-  document.querySelectorAll('.editable').forEach(el => {
-    el.addEventListener('blur', e => { rows[+e.target.dataset.row][e.target.dataset.field] = e.target.textContent.trim(); });
-  });
-  document.querySelectorAll('.cell-select').forEach(sel => {
-    sel.addEventListener('change', e => { rows[+e.target.dataset.row].delivery_type = e.target.value; });
-  });
-
-  document.getElementById('preview-count').textContent = `(${rows.length}건 — 오류 ${errCount} / 주의 ${warnCount})`;
-  document.getElementById('preview-card').style.display = '';
-  document.getElementById('btn-import').disabled = errCount > 0;
-  if (errCount > 0) setStatus('import-status', `오류 ${errCount}건 수정 후 저장 가능`, true);
-  else setStatus('import-status', '');
-}
-
-document.getElementById('btn-import').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-import');
+  const btn = document.getElementById('btn-bulk-import');
   btn.disabled = true;
+  btn.textContent = '저장 중...';
+  const pw = document.getElementById('bulk-progress-wrap');
+  const pb = document.getElementById('bulk-progress-bar');
+  pw.style.display = '';
+
   let ok = 0, failed = [];
 
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    setStatus('import-status', `저장 중... ${i + 1}/${rows.length}`);
+  for (let i = 0; i < bulkRows.length; i++) {
+    const row = bulkRows[i];
+    if (!row.orderer_name && !row.orderer_phone) continue;
+
     try {
-      if (row.orderer_status === 'new') {
-        const res = await fetch(`${API}/api/customers`, {
+      // 주문자 upsert
+      const ordPhone = row.orderer_phone.replace(/[^0-9]/g, '');
+      if (!ordPhone) throw new Error('주문자 전화번호 없음');
+      const cRes = await fetch(`${API}/api/customers`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: row.orderer_name, phone: ordPhone, memo: '' })
+      });
+      const cData = await cRes.json();
+      if (!cData.id) throw new Error('주문자 등록 실패');
+      const ordererId = cData.id;
+
+      // 수령자 upsert
+      let recipientId = null;
+      if (row.recipient_phone) {
+        const rPhone = row.recipient_phone.replace(/[^0-9]/g, '');
+        const rRes = await fetch(`${API}/api/customers`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: row.orderer_name, phone: row.orderer_phone, memo: '' })
+          body: JSON.stringify({ name: row.recipient_name || row.orderer_name, phone: rPhone, memo: '' })
         });
-        const d = await res.json();
-        if (!d.id) throw new Error('주문자 등록 실패');
-        row.orderer_id = d.id;
+        const rData = await rRes.json();
+        if (rData.id && rData.id !== ordererId) recipientId = rData.id;
       }
-      if (row.recipient_status === 'new' && row.recipient_phone) {
-        const res = await fetch(`${API}/api/customers`, {
+
+      // 주소 등록
+      let addressId = null;
+      if (row.address && row.delivery_type === '택배') {
+        const aRes = await fetch(`${API}/api/addresses`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: row.recipient_name, phone: row.recipient_phone, memo: '' })
+          body: JSON.stringify({ customer_id: recipientId || ordererId, address: row.address, label: '', is_default: 0 })
         });
-        const d = await res.json();
-        if (!d.id) throw new Error('수령자 등록 실패');
-        row.recipient_id = d.id;
+        const aData = await aRes.json();
+        if (aData.id) addressId = aData.id;
       }
-      if (row.delivery_type === '택배' && row.address && !row.address_id && row.orderer_id) {
-        const res = await fetch(`${API}/api/addresses`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ customer_id: row.orderer_id, address: row.address, label: '', is_default: 0 })
-        });
-        const d = await res.json();
-        if (d.id) row.address_id = d.id;
-      }
-      const shipping_fee = row.delivery_type === '택배'
-        ? (row.items.reduce((s, it) => s + it.qty, 0) >= 4 ? 0 : 3000) : 0;
-      const res = await fetch(`${API}/api/orders`, {
+
+      // 상품
+      const product = PRODUCTS.find(p => p.name === row.product) || PRODUCTS[0];
+      const shipping_fee = row.delivery_type === '택배' ? (row.qty >= 4 ? 0 : 3000) : 0;
+
+      // 주문 생성
+      const oRes = await fetch(`${API}/api/orders`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          order_no: row.order_no, orderer_id: row.orderer_id,
-          recipient_id: row.recipient_id || null, address_id: row.address_id || null,
-          delivery_type: row.delivery_type, priority: 3, memo: row.memo,
-          items: row.items, shipping_fee, created_at: row.created_at || null,
+          order_no: row.order_no || undefined,
+          orderer_id: ordererId,
+          recipient_id: recipientId,
+          address_id: addressId,
+          delivery_type: row.delivery_type,
+          priority: 3,
+          memo: row.memo,
+          items: [{ product: product.name, unit_price: product.price, qty: row.qty }],
+          shipping_fee,
+          created_at: row.created_at || null,
         })
       });
-      const d = await res.json();
-      if (!d.id) throw new Error(d.error || '주문 등록 실패');
+      const oData = await oRes.json();
+      if (!oData.id) throw new Error(oData.error || '주문 등록 실패');
+
+      bulkRows[i].status = '완료';
       ok++;
     } catch (e) {
-      failed.push(`행 ${i + 1} (${row.order_no || '?'}): ${e.message}`);
+      bulkRows[i].status = '오류';
+      failed.push(`행 ${i + 1}: ${e.message}`);
     }
+
+    pb.style.width = `${Math.round(((ok + failed.length) / validRows.length) * 100)}%`;
+    renderBulkGrid();
   }
 
   const box = document.getElementById('result-wrap');
   box.style.display = '';
-  box.innerHTML = `<div class="result-box ${failed.length ? 'result-warn' : 'result-ok'}">
+  box.innerHTML = `<div class="result-box ${failed.length ? 'result-warn' : 'result-ok'}" style="background:${failed.length?'#fff7ed':'#f0fdf4'};border:1px solid ${failed.length?'#fed7aa':'#bbf7d0'};border-radius:8px;padding:14px;margin-bottom:16px">
     ✅ 완료 — 성공 <strong>${ok}건</strong> / 실패 <strong>${failed.length}건</strong>
-    ${failed.length ? `<div class="err-list">${failed.join('<br>')}</div>` : ''}
+    ${failed.length ? `<div style="margin-top:8px;font-size:12px;color:#dc2626">${failed.join('<br>')}</div>` : ''}
   </div>`;
-  setStatus('import-status', '완료');
-  document.getElementById('preview-card').style.display = 'none';
-  if (ok > 0) setTimeout(() => { window.location.href = 'order-list.html'; }, 2000);
-});
 
-document.getElementById('btn-clear').addEventListener('click', () => {
-  document.getElementById('paste-area').value = '';
-  document.getElementById('preview-card').style.display = 'none';
-  document.getElementById('result-wrap').style.display = 'none';
-  rows = [];
-  setStatus('parse-status', '');
-  setStatus('import-status', '');
+  showToast(`✅ ${ok}건 저장${failed.length ? ` · ${failed.length}건 오류` : ''}`);
+  btn.disabled = false;
+  btn.textContent = 'DB에 저장';
+  if (ok > 0 && !failed.length) setTimeout(() => { window.location.href = 'order-list.html'; }, 1500);
 });
 
 // ── 템플릿 다운로드 ───────────────────────────────────
 document.getElementById('btn-template-dl').addEventListener('click', () => {
   const header = ['주문일(mm-dd)','주문번호','주문자이름','주문자전화번호','메모','상품명','수량','배송방법','수령자이름','수령자전화번호','수령자주소'];
-  const example = ['06-16','26주문-001','홍길동','01012345678','선물포장','블루베리 2kg','2','택배','김영희','01098765432','서울 강남구 테헤란로 123'];
-
+  const example = ['06-16','26주문-001','홍길동','01012345678','선물포장','(3.0만)','2','택배','김영희','01098765432','서울 강남구 테헤란로 123'];
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([header, example]);
-
-  // 헤더 열 너비
-  ws['!cols'] = [10, 12, 10, 14, 12, 12, 6, 8, 10, 14, 30].map(w => ({ wch: w }));
-
+  ws['!cols'] = [10,12,10,14,12,10,6,8,10,14,30].map(w => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, ws, '주문입력');
   XLSX.writeFile(wb, '주문일괄입력_템플릿.xlsx');
 });
+
+// ── 탭2 초기 행 ──────────────────────────────────────
+bulkRows = [newBulkRow(), newBulkRow(), newBulkRow()];
+renderBulkGrid();
 </script>
 </body>
 </html>
