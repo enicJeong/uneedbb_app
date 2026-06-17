@@ -163,12 +163,25 @@ export default {
       if (path.match(/^\/api\/customers\/\d+$/) && method === 'PUT') {
         const id = path.split('/')[3];
         const body = await request.json();
+        if (body.google_resource_name !== undefined) {
+          await env.DB.prepare(
+            `UPDATE customers SET google_resource_name=? WHERE id=?`
+          ).bind(body.google_resource_name, id).run();
+          return json({ ok: true });
+        }
         const phone = normalizePhone(body.phone);
         const { name, memo } = body;
         await env.DB.prepare(
           `UPDATE customers SET name=?, phone=?, memo=? WHERE id=?`
         ).bind(name, phone, memo || '', id).run();
         return json({ ok: true });
+      }
+
+      if (path === '/api/customers/no-google' && method === 'GET') {
+        const rows = await env.DB.prepare(
+          `SELECT id, name, phone, memo FROM customers WHERE google_resource_name IS NULL OR google_resource_name = '' ORDER BY id DESC`
+        ).all();
+        return json(rows.results);
       }
 
       // ── 주소 ──────────────────────────────────────────

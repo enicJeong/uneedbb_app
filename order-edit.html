@@ -179,7 +179,7 @@ async function loadOrder() {
       recipient = null;
       document.getElementById('recipient-search-field').style.display = '';
       document.getElementById('recipient-selected').style.display = 'none';
-      if (orderer && deliveryType === '택배') {
+      if (orderer && deliveryType !== '현장수령') {
         loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
       }
     });
@@ -190,11 +190,11 @@ async function loadOrder() {
   document.querySelectorAll('[data-delivery]').forEach(b => {
     b.classList.toggle('active', b.dataset.delivery === deliveryType);
   });
-  document.getElementById('address-wrap').style.display = deliveryType === '택배' ? '' : 'none';
+  document.getElementById('address-wrap').style.display = deliveryType !== '현장수령' ? '' : 'none';
 
   // 주소
   selectedAddressId = order.address_id;
-  if (deliveryType === '택배' && orderer) {
+  if (deliveryType !== '현장수령' && orderer) {
     const res2 = await fetch(`${API}/api/customers/${orderer.id}`);
     const data = await res2.json();
     renderAddresses(data.addresses || [], null, (id) => { selectedAddressId = id || order.address_id; });
@@ -237,7 +237,7 @@ setupSearch('orderer-input', 'orderer-search-btn', 'orderer-dropdown', null, asy
     document.getElementById('address-list').innerHTML = '';
     selectedAddressId = null;
   });
-  if (deliveryType === '택배') {
+  if (deliveryType !== '현장수령') {
     await loadAddresses(c.id, (id) => { selectedAddressId = id; });
   }
 });
@@ -250,11 +250,11 @@ setupSearch('recipient-input', 'recipient-search-btn', 'recipient-dropdown', nul
     recipient = null;
     document.getElementById('recipient-search-field').style.display = '';
     document.getElementById('recipient-selected').style.display = 'none';
-    if (orderer && deliveryType === '택배') {
+    if (orderer && deliveryType !== '현장수령') {
       loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
     }
   });
-  if (deliveryType === '택배') {
+  if (deliveryType !== '현장수령') {
     await loadAddresses(c.id, (id) => { selectedAddressId = id; });
   }
 });
@@ -265,7 +265,7 @@ document.getElementById('recip-same').addEventListener('click', () => {
   document.getElementById('recip-same').classList.add('active');
   document.getElementById('recip-diff').classList.remove('active');
   document.getElementById('recipient-wrap').style.display = 'none';
-  if (orderer && deliveryType === '택배') {
+  if (orderer && deliveryType !== '현장수령') {
     loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
   }
 });
@@ -296,7 +296,7 @@ document.querySelectorAll('[data-delivery]').forEach(btn => {
     document.querySelectorAll('[data-delivery]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     deliveryType = btn.dataset.delivery;
-    document.getElementById('address-wrap').style.display = deliveryType === '택배' ? '' : 'none';
+    document.getElementById('address-wrap').style.display = deliveryType !== '현장수령' ? '' : 'none';
     autoShipping(items, deliveryType);
   });
 });
@@ -329,7 +329,7 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
   if (!orderer)    { showToast('주문자를 선택하세요'); return; }
   if (!recipientSame && !recipient) { showToast('수령자를 선택하세요'); return; }
   if (!items.length) { showToast('상품을 추가하세요'); return; }
-  if (deliveryType === '택배' && !selectedAddressId) { showToast('배송 주소를 선택하세요'); return; }
+  if (deliveryType !== '현장수령' && !selectedAddressId) { showToast('배송 주소를 선택하세요'); return; }
 
   const btn = document.getElementById('btn-submit');
   btn.disabled = true;
@@ -339,7 +339,7 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
     order_no:       orderNo,
     orderer_id:     orderer.id,
     recipient_id:   recipientSame ? null : recipient?.id,
-    address_id:     deliveryType === '택배' ? selectedAddressId : null,
+    address_id:     deliveryType !== '현장수령' ? selectedAddressId : null,
     delivery_type:  deliveryType,
     priority,
     memo:           document.getElementById('memo').value,
