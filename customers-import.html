@@ -235,44 +235,67 @@ document.getElementById('btn-import').addEventListener('click', async () => {
   }
 });
 
+const SYNC_TOKEN_KEY = 'bb_google_sync_token';
+
+async function fetchGoogleContacts(label) {
+  let googleContacts = [], pageToken = '', syncToken = localStorage.getItem(SYNC_TOKEN_KEY) || '';
+  const isIncremental = !!syncToken;
+
+  document.getElementById('progress-label').textContent = isIncremental
+    ? '구글 변경분 조회 중...' : '구글 연락처 전체 조회 중...';
+
+  do {
+    let url = 'https://people.googleapis.com/v1/people/me/connections'
+      + '?personFields=names,phoneNumbers,biographies&pageSize=1000&requestSyncToken=true';
+    if (isIncremental && !pageToken) url += '&syncToken=' + encodeURIComponent(syncToken);
+    if (pageToken) url += '&pageToken=' + encodeURIComponent(pageToken);
+
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+    const data = await res.json();
+
+    // syncToken 만료 시 전체 재조회
+    if (data.error?.code === 410) {
+      localStorage.removeItem(SYNC_TOKEN_KEY);
+      return fetchGoogleContacts(label);
+    }
+    if (data.error) throw new Error(data.error.message);
+
+    for (const p of (data.connections || [])) {
+      if (p.metadata?.deleted) continue;
+      const name = p.names?.[0]?.displayName || '';
+      const memo = p.biographies?.[0]?.value || '';
+      const resourceName = p.resourceName || '';
+      for (const ph of (p.phoneNumbers || [])) {
+        const phone = ph.value.replace(/[^0-9]/g, '');
+        if (phone) googleContacts.push({ name, phone, memo, google_resource_name: resourceName });
+      }
+    }
+
+    if (data.nextSyncToken) localStorage.setItem(SYNC_TOKEN_KEY, data.nextSyncToken);
+    pageToken = data.nextPageToken || '';
+  } while (pageToken);
+
+  const seen = new Set();
+  googleContacts = googleContacts.filter(c => {
+    if (seen.has(c.phone)) return false;
+    seen.add(c.phone); return true;
+  });
+
+  return { googleContacts, isIncremental };
+}
+
 // ── 전체 동기화 ────────────────────────────────────────
 document.getElementById('btn-sync').addEventListener('click', async () => {
   const btn = document.getElementById('btn-sync');
   btn.disabled = true;
   document.getElementById('progress-wrap').style.display = '';
   document.getElementById('result-wrap').style.display = 'none';
+  setProgress(0, 1);
 
   try {
     // ── STEP 1: 구글 → D1 ─────────────────────────────
-    setProgress(0, 1);
-    document.getElementById('progress-label').textContent = '구글 연락처 조회 중...';
-    let googleContacts = [], pageToken = '';
-    do {
-      const url = 'https://people.googleapis.com/v1/people/me/connections'
-        + '?personFields=names,phoneNumbers,biographies&pageSize=1000'
-        + (pageToken ? '&pageToken=' + pageToken : '');
-      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      for (const p of (data.connections || [])) {
-        const name = p.names?.[0]?.displayName || '';
-        const memo = p.biographies?.[0]?.value || '';
-        const resourceName = p.resourceName || '';
-        for (const ph of (p.phoneNumbers || [])) {
-          const phone = ph.value.replace(/[^0-9]/g, '');
-          if (phone) googleContacts.push({ name, phone, memo, google_resource_name: resourceName });
-        }
-      }
-      pageToken = data.nextPageToken || '';
-    } while (pageToken);
+    const { googleContacts, isIncremental } = await fetchGoogleContacts();
 
-    const seen = new Set();
-    googleContacts = googleContacts.filter(c => {
-      if (seen.has(c.phone)) return false;
-      seen.add(c.phone); return true;
-    });
-
-    // 구글 → D1 upsert
     const CHUNK = 100;
     let totalInserted = 0, done = 0;
     for (let i = 0; i < googleContacts.length; i += CHUNK) {
@@ -286,8 +309,12 @@ document.getElementById('btn-sync').addEventListener('click', async () => {
       totalInserted += data.inserted || 0;
       done = Math.min(i + CHUNK, googleContacts.length);
       document.getElementById('progress-label').textContent = `구글→D1 처리 중... ${done} / ${googleContacts.length}건`;
-      document.getElementById('progress-bar').style.width = Math.round(done / googleContacts.length * 50) + '%';
-      document.getElementById('progress-pct').textContent = Math.round(done / googleContacts.length * 50) + '%';
+      document.getElementById('progress-bar').style.width = Math.round(done / Math.max(googleContacts.length, 1) * 50) + '%';
+      document.getElementById('progress-pct').textContent = Math.round(done / Math.max(googleContacts.length, 1) * 50) + '%';
+    }
+    if (!googleContacts.length) {
+      document.getElementById('progress-bar').style.width = '50%';
+      document.getElementById('progress-pct').textContent = '50%';
     }
 
     // ── STEP 2: D1 신규 → 구글 ────────────────────────
@@ -351,10 +378,10 @@ document.getElementById('btn-sync').addEventListener('click', async () => {
     const box = document.getElementById('result-wrap');
     box.style.display = '';
     box.innerHTML = `<div class="result-box result-ok">
-      ✅ 동기화 완료<br>
+      ✅ 동기화 완료 <span style="font-size:12px;color:#6b7280">(${isIncremental ? '증분' : '전체'})</span><br>
       구글→D1 업데이트: <strong>${totalInserted}건</strong>
       &nbsp;|&nbsp; 앱→구글 등록: <strong>${pushed}건</strong>
-      ${noGoogleList.length ? `<div style="font-size:12px;color:#6b7280;margin-top:4px">블베주문자 라벨로 등록됨</div>` : ''}
+      ${pushed > 0 ? `<div style="font-size:12px;color:#6b7280;margin-top:4px">블베주문자 라벨로 등록됨</div>` : ''}
     </div>`;
 
   } catch (e) {
