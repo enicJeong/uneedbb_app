@@ -228,10 +228,10 @@ function render() {
   document.getElementById('d-order-no').textContent   = order.order_no || '-';
   document.getElementById('d-date').textContent       = order.created_at || '-';
   document.getElementById('d-orderer').innerHTML =
-    `${order.orderer_name} ${order.orderer_phone}` +
+    `${order.orderer_name} ${formatPhone(order.orderer_phone)}` +
     (order.orderer_memo ? `<div style="font-size:11px;color:#f59e0b;font-weight:600;margin-top:2px">📝 ${order.orderer_memo}</div>` : '');
   document.getElementById('d-recipient').innerHTML = order.recipient_name
-    ? `${order.recipient_name} ${order.recipient_phone}` +
+    ? `${order.recipient_name} ${formatPhone(order.recipient_phone)}` +
       (order.recipient_memo ? `<div style="font-size:11px;color:#f59e0b;font-weight:600;margin-top:2px">📝 ${order.recipient_memo}</div>` : '')
     : '주문자와 동일';
   document.getElementById('d-delivery').textContent   = order.delivery_type;
@@ -364,8 +364,8 @@ document.getElementById('btn-print').addEventListener('click', () => {
     : '';
   document.getElementById('print-content').innerHTML = `
     <div class="print-row"><span class="pl">주문번호</span><span class="pv">${order.order_no || '#' + order.id}</span></div>
-    <div class="print-row"><span class="pl">주문자</span><span class="pv">${order.orderer_name} ${order.orderer_phone}</span></div>
-    <div class="print-row"><span class="pl">수령자</span><span class="pv">${order.recipient_name || order.orderer_name} ${order.recipient_phone || order.orderer_phone}</span></div>
+    <div class="print-row"><span class="pl">주문자</span><span class="pv">${order.orderer_name} ${formatPhone(order.orderer_phone)}</span></div>
+    <div class="print-row"><span class="pl">수령자</span><span class="pv">${order.recipient_name || order.orderer_name} ${formatPhone(order.recipient_phone || order.orderer_phone)}</span></div>
     <div class="print-row"><span class="pl">배송방법</span><span class="pv">${order.delivery_type}</span></div>
     ${order.address ? `<div class="print-row"><span class="pl">주소</span><span class="pv">${order.address}</span></div>` : ''}
     <div class="print-items">${items}</div>

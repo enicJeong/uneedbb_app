@@ -186,7 +186,7 @@ function renderTable() {
       <td style="color:#9ca3af">${item.id}</td>
       <td><span class="badge badge-${item.status}">${item.status}</span></td>
       <td class="name-cell">${item.customer_name || '-'}</td>
-      <td class="phone-cell">${item.phone}</td>
+      <td class="phone-cell">${formatPhone(item.phone)}</td>
       <td class="msg-cell">${item.message}</td>
       <td class="date-cell">${(item.created_at || '').slice(0, 16)}</td>
       <td style="font-size:12px;color:#9ca3af;text-align:center">${item.retry_count}</td>

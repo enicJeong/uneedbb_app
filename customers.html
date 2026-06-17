@@ -242,7 +242,7 @@ function renderList() {
     div.className = 'customer-card';
     div.innerHTML = `
       <div class="customer-name">${c.name}</div>
-      <div class="customer-phone">${c.phone}</div>
+      <div class="customer-phone">${formatPhone(c.phone)}</div>
       ${c.memo ? `<div class="customer-memo">${c.memo}</div>` : ''}`;
     div.addEventListener('click', () => openModal(c));
     list.appendChild(div);

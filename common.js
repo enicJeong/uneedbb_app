@@ -1,3 +1,10 @@
+// ── 전화번호 포맷 ─────────────────────────────────────
+function formatPhone(phone) {
+  const d = (phone || '').replace(/[^0-9]/g, '');
+  if (d.length < 8) return d;
+  return d.slice(0, d.length - 8) + '-' + d.slice(d.length - 8, d.length - 4) + '-' + d.slice(d.length - 4);
+}
+
 // ── Toast ──────────────────────────────────────────────
 function showToast(msg) {
   let t = document.getElementById('toast');

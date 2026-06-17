@@ -389,7 +389,7 @@ document.getElementById('btn-sync').addEventListener('click', async () => {
           headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
           body: JSON.stringify({
             names: [{ displayName: c.name }],
-            phoneNumbers: [{ value: c.phone }],
+            phoneNumbers: [{ value: (d => d.length===11 ? `${d.slice(0,3)}-${d.slice(3,7)}-${d.slice(7)}` : c.phone)(c.phone.replace(/[^0-9]/g,'')) }],
             biographies: c.memo ? [{ value: c.memo }] : [],
             memberships: [{ contactGroupMembership: { contactGroupResourceName: groupResourceName } }]
           })
