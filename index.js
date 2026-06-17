@@ -281,7 +281,7 @@ export default {
                 r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
                 a.address,
                 (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS total_qty,
-                (SELECT GROUP_CONCAT(product || ' ' || qty || '개', ', ') FROM order_items WHERE order_id = o.id) AS items_summary
+                (SELECT GROUP_CONCAT(product || '*' || qty, ', ') FROM order_items WHERE order_id = o.id) AS items_summary
               FROM orders o
               LEFT JOIN customers c ON o.orderer_id  = c.id
               LEFT JOIN customers r ON o.recipient_id = r.id
@@ -295,7 +295,7 @@ export default {
                 r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
                 a.address,
                 (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS total_qty,
-                (SELECT GROUP_CONCAT(product || ' ' || qty || '개', ', ') FROM order_items WHERE order_id = o.id) AS items_summary
+                (SELECT GROUP_CONCAT(product || '*' || qty, ', ') FROM order_items WHERE order_id = o.id) AS items_summary
               FROM orders o
               LEFT JOIN customers c ON o.orderer_id  = c.id
               LEFT JOIN customers r ON o.recipient_id = r.id

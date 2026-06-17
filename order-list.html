@@ -113,9 +113,8 @@
           <th>배송</th>
           <th>주소</th>
           <th>택배송장</th>
-          <th>청구금액</th>
           <th>수금</th>
-          <th>P</th>
+          <th></th>
         </tr>
       </thead>
       <tbody id="desktop-tbody"></tbody>
@@ -210,7 +209,7 @@ function renderOrders() {
     card.className = `order-card status-${o.status}`;
     const recipientText = o.recipient_name ? `<span class="recipient">→ ${o.recipient_name}</span>` : '';
     const priorityClass = o.priority <= 2 ? ' high' : '';
-    const date = (o.created_at || '').slice(0, 10);
+    const date = (o.created_at || '').slice(2, 10);
     card.innerHTML = `
       <div class="order-top">
         <span class="order-id">${o.order_no || '#' + o.id} · ${date}</span>
@@ -235,7 +234,7 @@ function renderOrders() {
   const tbody = document.getElementById('desktop-tbody');
   tbody.innerHTML = '';
   filtered.forEach(o => {
-    const date = (o.created_at || '').slice(0, 10);
+    const date = (o.created_at || '').slice(2, 10);
     const priorityClass = o.priority <= 2 ? ' high' : '';
     const printed = !!o.printed_at;
     const tr = document.createElement('tr');
@@ -263,19 +262,22 @@ function renderOrders() {
       <td><span class="badge badge-${o.delivery_type}">${o.delivery_type}</span></td>
       <td class="addr-cell">${o.address || '-'}</td>
       <td style="white-space:nowrap;font-size:12px;color:#6b7280">${o.tracking_no || ''}</td>
-      <td class="amount">${o.total_amount.toLocaleString()}원</td>
       <td><span class="badge badge-${o.payment_status}">${o.payment_status}</span></td>
-      <td><span class="badge badge-p${priorityClass}">P${o.priority}</span></td>`;
+      <td style="text-align:center;white-space:nowrap">
+        <button class="btn-detail" data-id="${o.id}" style="padding:4px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;cursor:pointer;white-space:nowrap">상세 →</button>
+      </td>`;
     tr.querySelector('.print-chk').addEventListener('click', (e) => {
+      e.stopPropagation();
       togglePrinted(e, o.id, printed);
     });
-    tr.querySelector('.row-chk').addEventListener('click', (e) => {
+    tr.querySelector('.btn-detail').addEventListener('click', (e) => {
       e.stopPropagation();
-      updateBulkBar();
-    });
-    tr.addEventListener('click', (e) => {
-      if (e.target.type === 'checkbox') return;
       window.location.href = `order-detail.html?id=${o.id}`;
+    });
+    tr.addEventListener('click', () => {
+      const chk = tr.querySelector('.row-chk');
+      chk.checked = !chk.checked;
+      updateBulkBar();
     });
     tbody.appendChild(tr);
   });
