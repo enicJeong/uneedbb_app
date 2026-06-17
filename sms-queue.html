@@ -97,6 +97,7 @@
           <tr>
             <th>#</th>
             <th>상태</th>
+            <th>이름</th>
             <th>전화번호</th>
             <th>메시지</th>
             <th>등록일시</th>
@@ -183,6 +184,7 @@ function renderTable() {
     tr.innerHTML = `
       <td style="color:#9ca3af">${item.id}</td>
       <td><span class="badge badge-${item.status}">${item.status}</span></td>
+      <td style="font-size:13px;font-weight:600">${item.customer_name || '-'}</td>
       <td class="phone-cell">${item.phone}</td>
       <td class="msg-cell">${item.message}</td>
       <td class="date-cell">${(item.created_at || '').slice(0, 16)}</td>

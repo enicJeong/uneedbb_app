@@ -538,10 +538,14 @@ export default {
         const status = url.searchParams.get('status') || '';
         const rows = status
           ? await env.DB.prepare(
-              `SELECT * FROM sms_queue WHERE status = ? ORDER BY id DESC`
+              `SELECT q.*, c.name AS customer_name FROM sms_queue q
+               LEFT JOIN customers c ON q.customer_id = c.id
+               WHERE q.status = ? ORDER BY q.id DESC`
             ).bind(status).all()
           : await env.DB.prepare(
-              `SELECT * FROM sms_queue ORDER BY id DESC`
+              `SELECT q.*, c.name AS customer_name FROM sms_queue q
+               LEFT JOIN customers c ON q.customer_id = c.id
+               ORDER BY q.id DESC`
             ).all();
         return json(rows.results);
       }
