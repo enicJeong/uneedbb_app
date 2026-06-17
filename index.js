@@ -57,7 +57,10 @@ async function insertDeliverySms(db, orderId) {
 
   const recipientName  = order.recipient_name  || order.orderer_name;
   const recipientPhone = order.recipient_phone || order.orderer_phone;
-  const trackingNo     = order.tracking_no || '';
+  const rawTracking    = (order.tracking_no || '').replace(/[^0-9]/g, '');
+  const trackingNo     = rawTracking.length === 11
+    ? `${rawTracking.slice(0,3)}-${rawTracking.slice(3,7)}-${rawTracking.slice(7,11)}`
+    : order.tracking_no || '';
 
   // 발송일 포맷: 6월 16일(화)
   const now = new Date();
@@ -527,9 +530,13 @@ export default {
       if (path.match(/^\/api\/orders\/\d+\/tracking_no$/) && method === 'PUT') {
         const id = path.split('/')[3];
         const { tracking_no } = await request.json();
+        const digits = (tracking_no || '').replace(/[^0-9]/g, '');
+        const formatted = digits.length === 11
+          ? `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7,11)}`
+          : tracking_no || '';
         await env.DB.prepare(
           `UPDATE orders SET tracking_no=?, updated_at=datetime('now','localtime') WHERE id=?`
-        ).bind(tracking_no || '', id).run();
+        ).bind(formatted, id).run();
         return json({ ok: true });
       }
 

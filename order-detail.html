@@ -329,14 +329,20 @@ async function updatePayment(payment_status) {
   await loadOrder();
 }
 
+document.getElementById('tracking-input').addEventListener('input', (e) => {
+  const digits = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
+  if (digits.length <= 3) e.target.value = digits;
+  else if (digits.length <= 7) e.target.value = `${digits.slice(0,3)}-${digits.slice(3)}`;
+  else e.target.value = `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`;
+});
+
 document.getElementById('btn-save-tracking').addEventListener('click', async () => {
   let val = document.getElementById('tracking-input').value.trim();
   if (val) {
     // 숫자만 추출
     const digits = val.replace(/[^0-9]/g, '');
-    // 12자리면 0000-0000-0000 형식으로 변환
-    if (digits.length === 12) {
-      val = `${digits.slice(0,4)}-${digits.slice(4,8)}-${digits.slice(8,12)}`;
+    if (digits.length === 11) {
+      val = `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7,11)}`;
     }
     document.getElementById('tracking-input').value = val;
   }
