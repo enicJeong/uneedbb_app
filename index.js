@@ -16,7 +16,9 @@ function err(msg, status = 400) {
 }
 
 function normalizePhone(phone) {
-  return (phone || '').replace(/[^0-9]/g, '');
+  let d = (phone || '').replace(/[^0-9]/g, '');
+  if (d.startsWith('82') && d.length === 12) d = '0' + d.slice(2);
+  return d;
 }
 
 // 주문번호 자동채번: 26주문-000

@@ -63,6 +63,19 @@
   #bulk-bar .toggle-switch input:checked ~ .toggle-track { background: #2563eb; }
   #bulk-bar .toggle-switch input:checked ~ .toggle-thumb { transform: translateX(14px); }
 
+  /* 상품 배지 */
+  .item-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+  .item-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 8px; border-radius: 6px;
+    font-size: 12px; font-weight: 700;
+    white-space: nowrap;
+  }
+  .item-badge .qty {
+    color: #fff; border-radius: 4px; padding: 0 5px;
+    font-size: 11px; font-weight: 700; line-height: 18px;
+  }
+
   /* 검색 */
   .search-row { display: flex; gap: 8px; margin-bottom: 12px; }
   .search-row input {
@@ -178,6 +191,38 @@ async function loadOrders() {
   renderOrders();
 }
 
+const BADGE_COLORS = [
+  { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', qty: '#1d4ed8' },
+  { bg: '#fef9c3', border: '#fde047', text: '#854d0e', qty: '#854d0e' },
+  { bg: '#dcfce7', border: '#86efac', text: '#15803d', qty: '#15803d' },
+  { bg: '#fce7f3', border: '#f9a8d4', text: '#9d174d', qty: '#9d174d' },
+  { bg: '#f3e8ff', border: '#d8b4fe', text: '#6b21a8', qty: '#6b21a8' },
+  { bg: '#ffedd5', border: '#fdba74', text: '#9a3412', qty: '#9a3412' },
+  { bg: '#e0f2fe', border: '#7dd3fc', text: '#0369a1', qty: '#0369a1' },
+  { bg: '#f1f5f9', border: '#94a3b8', text: '#334155', qty: '#334155' },
+];
+const productColorMap = {};
+let productColorIdx = 0;
+
+function getProductColor(name) {
+  if (!productColorMap[name]) {
+    productColorMap[name] = BADGE_COLORS[productColorIdx % BADGE_COLORS.length];
+    productColorIdx++;
+  }
+  return productColorMap[name];
+}
+
+function itemBadges(summary) {
+  if (!summary) return '<span style="color:#d1d5db">—</span>';
+  return '<div class="item-badges">' +
+    summary.split(', ').map(part => {
+      const [name, qty] = part.split('*');
+      const c = getProductColor(name || part);
+      return `<span class="item-badge" style="background:${c.bg};border:1px solid ${c.border};color:${c.text}">${name || part}${qty ? ` <span class="qty" style="background:${c.qty}">${qty}</span>` : ''}</span>`;
+    }).join('') +
+  '</div>';
+}
+
 function updateSummary() {
   ['주문입력','주문확정','주문출력','송장출력','배송완료','수금완료'].forEach(s => {
     document.getElementById('cnt-' + s).textContent = allOrders.filter(o => o.status === s).length;
@@ -240,6 +285,7 @@ function renderOrders() {
         </div>
       </div>
       <div class="order-names">${o.orderer_name}${recipientText}</div>
+      ${o.items_summary ? `<div style="margin:4px 0">${itemBadges(o.items_summary)}</div>` : ''}
       <div class="order-info">
         <span class="badge badge-${o.delivery_type}">${o.delivery_type}</span>
         ${o.address ? `<span>${o.address}</span>` : ''}
@@ -281,7 +327,7 @@ function renderOrders() {
           ? `${o.recipient_name}<div class="recip">${formatPhone(o.recipient_phone)}</div>${o.recipient_memo ? `<div style="font-size:11px;color:#f59e0b;font-weight:600">📝 ${o.recipient_memo}</div>` : ''}`
           : '<span style="color:#d1d5db">—</span>'}
       </td>
-      <td style="font-size:12px;color:#374151;white-space:nowrap">${o.items_summary || '-'}</td>
+      <td>${itemBadges(o.items_summary)}</td>
       <td><span class="badge badge-${o.delivery_type}">${o.delivery_type}</span></td>
       <td class="addr-cell">${o.address || '-'}</td>
       <td style="white-space:nowrap;font-size:12px;color:#6b7280">

@@ -10,6 +10,17 @@
   th { background: #f9fafb; padding: 7px 10px; text-align: left; font-size: 12px; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
   td { padding: 8px 10px; border-bottom: 1px solid #f3f4f6; }
 
+  /* 상품 배지 */
+  .item-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 10px; border-radius: 6px;
+    font-size: 13px; font-weight: 700; white-space: nowrap;
+  }
+  .item-badge .qty-chip {
+    color: #fff; border-radius: 4px; padding: 0 5px;
+    font-size: 11px; font-weight: 700; line-height: 18px;
+  }
+
   /* SMS 토글 */
   .sms-toggle-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7280; }
   .sms-toggle-wrap.on { color: #2563eb; }
@@ -116,6 +127,25 @@
 <script src="nav.js"></script>
 <script>
 const API = BB_CONFIG.API;
+const BADGE_COLORS = [
+  { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', qty: '#1d4ed8' },
+  { bg: '#fef9c3', border: '#fde047', text: '#854d0e', qty: '#854d0e' },
+  { bg: '#dcfce7', border: '#86efac', text: '#15803d', qty: '#15803d' },
+  { bg: '#fce7f3', border: '#f9a8d4', text: '#9d174d', qty: '#9d174d' },
+  { bg: '#f3e8ff', border: '#d8b4fe', text: '#6b21a8', qty: '#6b21a8' },
+  { bg: '#ffedd5', border: '#fdba74', text: '#9a3412', qty: '#9a3412' },
+  { bg: '#e0f2fe', border: '#7dd3fc', text: '#0369a1', qty: '#0369a1' },
+  { bg: '#f1f5f9', border: '#94a3b8', text: '#334155', qty: '#334155' },
+];
+const productColorMap = {};
+let productColorIdx = 0;
+function getProductColor(name) {
+  if (!productColorMap[name]) {
+    productColorMap[name] = BADGE_COLORS[productColorIdx % BADGE_COLORS.length];
+    productColorIdx++;
+  }
+  return productColorMap[name];
+}
 const STATUSES = ['주문입력', '주문확정', '주문출력', '송장출력', '배송완료', '수금완료'];
 const params = new URLSearchParams(location.search);
 const orderId = params.get('id');
@@ -251,7 +281,7 @@ function render() {
     itemSum += sub;
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${item.product}</td>
+      <td>${(() => { const c = getProductColor(item.product); return `<span class="item-badge" style="background:${c.bg};border:1px solid ${c.border};color:${c.text}">${item.product}</span>`; })()}</td>
       <td>${item.unit_price.toLocaleString()}원</td>
       <td>${item.qty}kg</td>
       <td>${sub.toLocaleString()}원</td>`;
