@@ -16,8 +16,23 @@
   }
 
   .print-chk { width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; }
-  .sel-chk   { width: 16px; height: 16px; cursor: pointer; accent-color: #2563eb; }
-  tr.selected td { background: #eff6ff !important; }
+  .sel-chk   { display: none; }
+  .row-sel-indicator {
+    display: inline-block; width: 20px; height: 20px;
+    border: 2px solid #d1d5db; border-radius: 5px;
+    background: #fff; transition: all .15s; flex-shrink: 0;
+  }
+  tr.row-selected .row-sel-indicator {
+    background: #111; border-color: #111;
+  }
+  tr.row-selected .row-sel-indicator::after {
+    content: '✓'; display: block; text-align: center;
+    color: #fff; font-size: 13px; font-weight: 900; line-height: 18px;
+  }
+  tr.row-selected {
+    outline: 3px solid #111;
+    outline-offset: -1px;
+  }
 
   /* 하단 플로팅 바 */
   #bulk-bar {
@@ -89,6 +104,10 @@
   </div>
 
   <div class="search-row">
+    <div style="display:flex;gap:0;border:2px solid #111;border-radius:8px;overflow:hidden;flex-shrink:0">
+      <button id="mode-select" class="mode-btn" style="padding:6px 14px;font-size:12px;font-weight:700;border:none;background:#111;color:#fff;cursor:pointer">☑ 선택</button>
+      <button id="mode-detail" class="mode-btn" style="padding:6px 14px;font-size:12px;font-weight:700;border:none;background:#fff;color:#111;cursor:pointer">→ 상세</button>
+    </div>
     <input type="text" id="search-input" placeholder="주문번호, 주문자, 수령자, 주소, 메모, 송장번호 검색...">
     <span class="search-count" id="search-count"></span>
   </div>
@@ -101,7 +120,7 @@
     <table class="tbl">
       <thead>
         <tr>
-          <th style="width:32px;text-align:center"><input type="checkbox" class="sel-chk" id="chk-all"></th>
+          <th style="width:32px;text-align:center"><input type="checkbox" class="sel-chk" id="chk-all" style="display:none"></th>
           <th>주문번호</th>
           <th>접수일</th>
           <th>진행</th>
@@ -149,6 +168,7 @@
 const API = BB_CONFIG.API;
 let allOrders = [];
 let currentFilter = '';
+let rowMode = 'select'; // 'select' | 'detail'
 let searchQuery = '';
 
 async function loadOrders() {
@@ -240,7 +260,10 @@ function renderOrders() {
     const tr = document.createElement('tr');
     tr.className = `status-${o.status}`;
     tr.innerHTML = `
-      <td style="text-align:center"><input type="checkbox" class="sel-chk row-chk" data-id="${o.id}" data-status="${o.status}"></td>
+      <td style="text-align:center;width:32px">
+        <input type="checkbox" class="sel-chk row-chk" data-id="${o.id}" data-status="${o.status}">
+        <span class="row-sel-indicator"></span>
+      </td>
       <td class="order-no">${o.order_no || '#' + o.id}</td>
       <td style="color:#9ca3af;white-space:nowrap">${date}</td>
       <td><span class="badge badge-${o.status}">${o.status}</span></td>
@@ -261,7 +284,11 @@ function renderOrders() {
       <td style="font-size:12px;color:#374151;white-space:nowrap">${o.items_summary || '-'}</td>
       <td><span class="badge badge-${o.delivery_type}">${o.delivery_type}</span></td>
       <td class="addr-cell">${o.address || '-'}</td>
-      <td style="white-space:nowrap;font-size:12px;color:#6b7280">${o.tracking_no || ''}</td>
+      <td style="white-space:nowrap;font-size:12px;color:#6b7280">
+        ${o.tracking_no
+          ? `<a href="https://www.ilogen.com/m/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;text-decoration:none">${o.tracking_no}</a>`
+          : ''}
+      </td>
       <td><span class="badge badge-${o.payment_status}">${o.payment_status}</span></td>
       <td style="text-align:center;white-space:nowrap">
         <button class="btn-detail" data-id="${o.id}" style="padding:4px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;cursor:pointer;white-space:nowrap">상세 →</button>
@@ -274,16 +301,38 @@ function renderOrders() {
       e.stopPropagation();
       window.location.href = `order-detail.html?id=${o.id}`;
     });
-    tr.addEventListener('click', () => {
-      const chk = tr.querySelector('.row-chk');
-      chk.checked = !chk.checked;
-      updateBulkBar();
+    tr.addEventListener('click', (e) => {
+      if (e.target.type === 'checkbox' || e.target.closest('a') || e.target.closest('.btn-detail')) return;
+      if (rowMode === 'detail') {
+        window.location.href = `order-detail.html?id=${o.id}`;
+      } else {
+        const chk = tr.querySelector('.row-chk');
+        chk.checked = !chk.checked;
+        tr.classList.toggle('row-selected', chk.checked);
+        updateBulkBar();
+      }
     });
     tbody.appendChild(tr);
   });
 }
 
 // ── 상태 필터 ─────────────────────────────────────────
+// ── 행 모드 토글 ──────────────────────────────────────
+document.getElementById('mode-select').addEventListener('click', () => {
+  rowMode = 'select';
+  document.getElementById('mode-select').style.background = '#111';
+  document.getElementById('mode-select').style.color = '#fff';
+  document.getElementById('mode-detail').style.background = '#fff';
+  document.getElementById('mode-detail').style.color = '#111';
+});
+document.getElementById('mode-detail').addEventListener('click', () => {
+  rowMode = 'detail';
+  document.getElementById('mode-detail').style.background = '#111';
+  document.getElementById('mode-detail').style.color = '#fff';
+  document.getElementById('mode-select').style.background = '#fff';
+  document.getElementById('mode-select').style.color = '#111';
+});
+
 document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -357,7 +406,10 @@ document.getElementById('btn-excel').addEventListener('click', async () => {
 
 // ── 전체선택 ──────────────────────────────────────────
 document.getElementById('chk-all').addEventListener('click', (e) => {
-  document.querySelectorAll('.row-chk').forEach(chk => { chk.checked = e.target.checked; });
+  document.querySelectorAll('.row-chk').forEach(chk => {
+    chk.checked = e.target.checked;
+    chk.closest('tr').classList.toggle('row-selected', e.target.checked);
+  });
   updateBulkBar();
 });
 
