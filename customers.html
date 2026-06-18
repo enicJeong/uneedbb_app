@@ -34,6 +34,11 @@
   .add-addr-row input.label-input { width: 80px; flex: none; }
   .btn-row { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
   .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .sync-filter { display: flex; gap: 6px; margin-bottom: 12px; }
+  .sync-filter button { padding: 5px 14px; border-radius: 20px; border: 1px solid #d1d5db;
+    background: #f9fafb; font-size: 12px; font-weight: 600; cursor: pointer; color: #6b7280; }
+  .sync-filter button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+  .no-result { color: #9ca3af; font-size: 14px; padding: 24px 0; text-align: center; }
 </style>
 </head>
 <body>
@@ -57,6 +62,11 @@
   <div class="search-wrap">
     <input type="text" id="search-input" placeholder="이름 또는 전화번호 검색">
     <span class="search-icon">🔍</span>
+  </div>
+  <div class="sync-filter">
+    <button class="active" data-synced="">전체</button>
+    <button data-synced="1">동기화됨</button>
+    <button data-synced="0">안됨</button>
   </div>
   <div class="count" id="count"></div>
   <div id="customer-list"></div>
@@ -108,6 +118,7 @@ let tokenClient = null;
 let allCustomers = [];
 let currentCustomer = null;
 let isNew = false;
+let syncedFilter = ''; // '' | '1' | '0'
 
 // ── Google 연결 ────────────────────────────────────────
 window.onload = () => {
@@ -142,7 +153,7 @@ window.onload = () => {
 tokenClient.requestAccessToken();
   }, 100);
 
-  loadCustomers();
+  // 자동 로드 안함 — 검색 또는 필터 선택 시 로드
 };
 
 document.getElementById('btn-google').addEventListener('click', () => {
@@ -222,18 +233,28 @@ async function updateGoogleContact(resourceName, name, phone, memo) {
 }
 
 // ── 목록 로드 ──────────────────────────────────────────
-async function loadCustomers(q = '') {
-  const url = q ? `${API}/api/customers?q=${encodeURIComponent(q)}` : `${API}/api/customers`;
-  const res = await fetch(url);
+async function loadCustomers() {
+  const q = document.getElementById('search-input').value.trim();
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (syncedFilter !== '') params.set('synced', syncedFilter);
+  // q도 없고 syncedFilter도 없으면 아무것도 안 가져옴 (서버에서 빈 배열 반환)
+  const res = await fetch(`${API}/api/customers?${params}`);
   allCustomers = await res.json();
   renderList();
 }
 
 function renderList() {
   const list = document.getElementById('customer-list');
+  const q = document.getElementById('search-input').value.trim();
+  if (!q && syncedFilter === '') {
+    list.innerHTML = '<div class="no-result">검색어를 입력하거나 필터를 선택하세요</div>';
+    document.getElementById('count').textContent = '';
+    return;
+  }
   document.getElementById('count').textContent = `총 ${allCustomers.length}명`;
   if (!allCustomers.length) {
-    list.innerHTML = '<div class="empty">고객이 없습니다</div>';
+    list.innerHTML = '<div class="no-result">결과 없음</div>';
     return;
   }
   list.innerHTML = '';
@@ -243,16 +264,26 @@ function renderList() {
     div.innerHTML = `
       <div class="customer-name">${c.name}</div>
       <div class="customer-phone">${formatPhone(c.phone)}</div>
-      ${c.memo ? `<div class="customer-memo">${c.memo}</div>` : ''}`;
+      ${c.memo ? `<div class="customer-memo">${c.memo}</div>` : ''}
+      ${c.synced_at ? `<div style="font-size:10px;color:#9ca3af;margin-top:2px">🔄 ${c.synced_at.slice(0,16)}</div>` : '<div style="font-size:10px;color:#fca5a5;margin-top:2px">미동기화</div>'}`;
     div.addEventListener('click', () => openModal(c));
     list.appendChild(div);
   });
 }
 
 let searchTimer;
-document.getElementById('search-input').addEventListener('input', e => {
+document.getElementById('search-input').addEventListener('input', () => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => loadCustomers(e.target.value.trim()), 300);
+  searchTimer = setTimeout(loadCustomers, 300);
+});
+
+document.querySelectorAll('.sync-filter button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sync-filter button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    syncedFilter = btn.dataset.synced;
+    loadCustomers();
+  });
 });
 
 // ── 모달 ──────────────────────────────────────────────

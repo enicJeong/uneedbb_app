@@ -106,20 +106,33 @@ export default {
       // ── 고객 ──────────────────────────────────────────
       if (path === '/api/customers' && method === 'GET') {
         const q = url.searchParams.get('q') || '';
+        const synced = url.searchParams.get('synced'); // '1' = 동기화됨, '0' = 안됨, null = 전체
         const qn = normalizePhone(q);
-        const rows = q
-          ? qn
-            ? await env.DB.prepare(
-                `SELECT id, name, phone, memo FROM customers
-                 WHERE name LIKE ? OR phone LIKE ? ORDER BY name LIMIT 50`
-              ).bind(`%${q}%`, `%${qn}%`).all()
-            : await env.DB.prepare(
-                `SELECT id, name, phone, memo FROM customers
-                 WHERE name LIKE ? ORDER BY name LIMIT 50`
-              ).bind(`%${q}%`).all()
-          : await env.DB.prepare(
-              `SELECT id, name, phone, memo FROM customers ORDER BY name LIMIT 200`
-            ).all();
+        if (!q && synced === null) return json([]);
+        const syncedCond = synced === '1'
+          ? `AND (google_resource_name IS NOT NULL AND google_resource_name != '')`
+          : synced === '0'
+          ? `AND (google_resource_name IS NULL OR google_resource_name = '')`
+          : '';
+        let rows;
+        if (q) {
+          if (qn) {
+            rows = await env.DB.prepare(
+              `SELECT id, name, phone, memo, synced_at FROM customers
+               WHERE (name LIKE ? OR phone LIKE ?) ${syncedCond} ORDER BY name LIMIT 100`
+            ).bind(`%${q}%`, `%${qn}%`).all();
+          } else {
+            rows = await env.DB.prepare(
+              `SELECT id, name, phone, memo, synced_at FROM customers
+               WHERE name LIKE ? ${syncedCond} ORDER BY name LIMIT 100`
+            ).bind(`%${q}%`).all();
+          }
+        } else {
+          rows = await env.DB.prepare(
+            `SELECT id, name, phone, memo, synced_at FROM customers
+             WHERE 1=1 ${syncedCond} ORDER BY name LIMIT 200`
+          ).all();
+        }
         return json(rows.results);
       }
 
@@ -132,11 +145,12 @@ export default {
             if (!phone) { skipped++; continue; }
             try {
               await env.DB.prepare(
-                `INSERT INTO customers (name, phone, memo, google_resource_name)
-                 VALUES (?, ?, ?, ?)
+                `INSERT INTO customers (name, phone, memo, google_resource_name, synced_at)
+                 VALUES (?, ?, ?, ?, datetime('now','localtime'))
                  ON CONFLICT(phone) DO UPDATE SET
                    name = excluded.name,
-                   google_resource_name = excluded.google_resource_name`
+                   google_resource_name = excluded.google_resource_name,
+                   synced_at = datetime('now','localtime')`
               ).bind(c.name || '', phone, c.memo || '', c.google_resource_name || '').run();
               inserted++;
             } catch (e) { failed.push({ phone, error: e.message }); }
@@ -150,6 +164,13 @@ export default {
           `INSERT INTO customers (name, phone, memo, google_resource_name) VALUES (?, ?, ?, ?)`
         ).bind(name, phone, memo || '', google_resource_name || '').run();
         return json({ id: result.meta.last_row_id }, 201);
+      }
+
+      if (path === '/api/customers/no-google' && method === 'GET') {
+        const rows = await env.DB.prepare(
+          `SELECT id, name, phone, memo FROM customers WHERE google_resource_name IS NULL OR google_resource_name = '' ORDER BY id DESC`
+        ).all();
+        return json(rows.results);
       }
 
       if (path.match(/^\/api\/customers\/\d+$/) && method === 'GET') {
@@ -169,7 +190,7 @@ export default {
         const body = await request.json();
         if (body.google_resource_name !== undefined) {
           await env.DB.prepare(
-            `UPDATE customers SET google_resource_name=? WHERE id=?`
+            `UPDATE customers SET google_resource_name=?, synced_at=datetime('now','localtime') WHERE id=?`
           ).bind(body.google_resource_name, id).run();
           return json({ ok: true });
         }
@@ -179,13 +200,6 @@ export default {
           `UPDATE customers SET name=?, phone=?, memo=? WHERE id=?`
         ).bind(name, phone, memo || '', id).run();
         return json({ ok: true });
-      }
-
-      if (path === '/api/customers/no-google' && method === 'GET') {
-        const rows = await env.DB.prepare(
-          `SELECT id, name, phone, memo FROM customers WHERE google_resource_name IS NULL OR google_resource_name = '' ORDER BY id DESC`
-        ).all();
-        return json(rows.results);
       }
 
       // ── 주소 ──────────────────────────────────────────

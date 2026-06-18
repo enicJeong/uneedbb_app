@@ -398,7 +398,7 @@ document.getElementById('btn-sync').addEventListener('click', async () => {
           await fetch(`${API}/api/customers/${c.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ google_resource_name: created.resourceName })
+            body: JSON.stringify({ google_resource_name: created.resourceName, synced_at: true })
           });
           pushed++;
         }
