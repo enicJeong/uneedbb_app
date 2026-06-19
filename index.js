@@ -73,7 +73,7 @@ async function insertDeliverySms(db, orderId) {
   const dateStr  = `${month}월 ${day}일(${dayName})`;
 
   const makeMsg = (name) =>
-    `[블루베리아침농원]\n<${order.orderer_name}>님이 주문하신 블루베리 ${qty}Kg 가\n<${name}>님께 ${dateStr} 저녁 택배로 발송하였습니다.\n로젠택배\n${trackingNo}`;
+    `[블루베리아침농원]\n<${order.orderer_name}>님이 주문하신 블루베리 ${qty}Kg 가\n<${name}>님께 ${dateStr} 저녁 택배로 발송하였습니다.\n로젠택배\n[${trackingNo}]`;
 
   const insertIfNew = async (customerId, phone, message) => {
     const dup = await db.prepare(
@@ -168,6 +168,13 @@ export default {
         return json({ id: result.meta.last_row_id }, 201);
       }
 
+      if (path === '/api/customers/counts' && method === 'GET') {
+        const total   = await env.DB.prepare(`SELECT COUNT(*) AS n FROM customers`).first();
+        const synced  = await env.DB.prepare(`SELECT COUNT(*) AS n FROM customers WHERE google_resource_name IS NOT NULL AND google_resource_name != ''`).first();
+        const unsynced = await env.DB.prepare(`SELECT COUNT(*) AS n FROM customers WHERE google_resource_name IS NULL OR google_resource_name = ''`).first();
+        return json({ total: total?.n || 0, synced: synced?.n || 0, unsynced: unsynced?.n || 0 });
+      }
+
       if (path === '/api/customers/no-google' && method === 'GET') {
         const rows = await env.DB.prepare(
           `SELECT id, name, phone, memo FROM customers WHERE google_resource_name IS NULL OR google_resource_name = '' ORDER BY id DESC`
@@ -247,7 +254,9 @@ export default {
             c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
             r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
             a.address,
-            (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS total_qty
+            (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS total_qty,
+            (SELECT GROUP_CONCAT(product || '*' || qty, ', ') FROM order_items WHERE order_id = o.id) AS items_summary,
+            (SELECT json_group_array(json_object('product', product, 'qty', qty, 'unit_price', unit_price)) FROM order_items WHERE order_id = o.id) AS items_json
           FROM orders o
           LEFT JOIN customers c ON o.orderer_id  = c.id
           LEFT JOIN customers r ON o.recipient_id = r.id

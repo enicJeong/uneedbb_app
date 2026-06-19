@@ -34,6 +34,13 @@
   .add-addr-row input.label-input { width: 80px; flex: none; }
   .btn-row { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
   .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .db-counts { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .db-count-badge { display: flex; align-items: center; gap: 5px; padding: 5px 12px;
+    border-radius: 8px; font-size: 12px; font-weight: 600; border: 1px solid; }
+  .db-count-badge .num { font-size: 15px; font-weight: 800; }
+  .db-count-badge.total  { background: #f1f5f9; border-color: #cbd5e1; color: #334155; }
+  .db-count-badge.synced { background: #dcfce7; border-color: #86efac; color: #15803d; }
+  .db-count-badge.unsync { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
   .sync-filter { display: flex; gap: 6px; margin-bottom: 12px; }
   .sync-filter button { padding: 5px 14px; border-radius: 20px; border: 1px solid #d1d5db;
     background: #f9fafb; font-size: 12px; font-weight: 600; cursor: pointer; color: #6b7280; }
@@ -62,6 +69,11 @@
   <div class="search-wrap">
     <input type="text" id="search-input" placeholder="이름 또는 전화번호 검색">
     <span class="search-icon">🔍</span>
+  </div>
+  <div class="db-counts" id="db-counts">
+    <div class="db-count-badge total">전체 <span class="num" id="cnt-total">-</span>명</div>
+    <div class="db-count-badge synced">동기화됨 <span class="num" id="cnt-synced">-</span>명</div>
+    <div class="db-count-badge unsync">미동기화 <span class="num" id="cnt-unsync">-</span>명</div>
   </div>
   <div class="sync-filter">
     <button class="active" data-synced="">전체</button>
@@ -154,6 +166,7 @@ tokenClient.requestAccessToken();
   }, 100);
 
   // 자동 로드 안함 — 검색 또는 필터 선택 시 로드
+  loadCounts();
 };
 
 document.getElementById('btn-google').addEventListener('click', () => {
@@ -230,6 +243,15 @@ async function updateGoogleContact(resourceName, name, phone, memo) {
       })
     });
   } catch (e) {}
+}
+
+// ── 카운트 ────────────────────────────────────────────
+async function loadCounts() {
+  const res = await fetch(`${API}/api/customers/counts`);
+  const data = await res.json();
+  document.getElementById('cnt-total').textContent  = data.total  || 0;
+  document.getElementById('cnt-synced').textContent = data.synced || 0;
+  document.getElementById('cnt-unsync').textContent = data.unsynced || 0;
 }
 
 // ── 목록 로드 ──────────────────────────────────────────
