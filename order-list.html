@@ -447,7 +447,17 @@ document.getElementById('btn-excel').addEventListener('click', async () => {
   const ws = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
   XLSX.utils.book_append_sheet(wb, ws, '엑셀파일첫행-제목있음');
   XLSX.writeFile(wb, `송장출력_${new Date().toISOString().slice(0,10)}.xls`);
-  showToast(`✅ ${orders.length}건 엑셀 저장됨`);
+
+  await fetch(`${API}/api/sms-queue`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      phone: '01088677298',
+      message: `저희 오늘 택배 ${orders.length}건 올려두었습니다.`
+    })
+  });
+
+  showToast(`✅ ${orders.length}건 엑셀 저장됨 · 문자 등록됨`);
 });
 
 // ── 전체선택 ──────────────────────────────────────────

@@ -583,6 +583,15 @@ export default {
       }
 
       // ── 문자 큐 목록 ───────────────────────────────────
+      if (path === '/api/sms-queue' && method === 'POST') {
+        const { phone, message } = await request.json();
+        if (!phone || !message) return err('phone, message 필수');
+        await env.DB.prepare(
+          `INSERT INTO sms_queue (order_id, customer_id, phone, message) VALUES (NULL, NULL, ?, ?)`
+        ).bind(normalizePhone(phone), message).run();
+        return json({ ok: true }, 201);
+      }
+
       if (path === '/api/sms-queue' && method === 'GET') {
         const status = url.searchParams.get('status') || '';
         const rows = status
