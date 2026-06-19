@@ -83,6 +83,11 @@
         <span class="step-text">③ 앱→구글 등록</span>
         <span class="step-count" id="step-3-count"></span>
       </div>
+      <div class="step-row" id="step-4" style="opacity:0.3">
+        <span class="step-dot">●</span>
+        <span class="step-text">④ 깨진 연동 정리</span>
+        <span class="step-count" id="step-4-count"></span>
+      </div>
     </div>
     <div style="height:8px;background:#e5e7eb;border-radius:99px;overflow:hidden">
       <div id="progress-bar" style="height:100%;width:0%;background:#2563eb;border-radius:99px;transition:width 0.3s ease"></div>
@@ -202,8 +207,9 @@ function renderPreview() {
 }
 
 function setStep(n, countText = '') {
-  [1, 2, 3].forEach(i => {
+  [1, 2, 3, 4].forEach(i => {
     const row = document.getElementById(`step-${i}`);
+    if (!row) return;
     row.classList.remove('active', 'done');
     row.style.opacity = i < n ? '1' : i === n ? '1' : '0.3';
     if (i < n) row.classList.add('done');
@@ -211,7 +217,7 @@ function setStep(n, countText = '') {
     document.getElementById(`step-${i}-count`).textContent = '';
   });
   if (countText) document.getElementById(`step-${n}-count`).textContent = countText;
-  document.getElementById('progress-bar').style.width = ((n - 1) * 33) + '%';
+  document.getElementById('progress-bar').style.width = ((n - 1) * 25) + '%';
 }
 
 function setStepCount(n, text) {
@@ -405,8 +411,32 @@ document.getElementById('btn-sync').addEventListener('click', async () => {
       } catch (e) { /* 개별 실패는 스킵 */ }
     }
 
+    // ── STEP 4: 구글에 없는 D1 항목 정리 (전체 동기화 시에만) ──
+    let cleared = 0;
+    setStep(4, '확인 중...');
+    if (!isIncremental) {
+      const googleRnSet = new Set(googleContacts.map(c => c.google_resource_name).filter(Boolean));
+      const syncedRes = await fetch(`${API}/api/customers/synced-google`);
+      const syncedList = await syncedRes.json();
+      const staleIds = syncedList
+        .filter(c => !googleRnSet.has(c.google_resource_name))
+        .map(c => c.id);
+      if (staleIds.length) {
+        const clearRes = await fetch(`${API}/api/customers/clear-google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: staleIds })
+        });
+        const clearData = await clearRes.json();
+        cleared = clearData.cleared || 0;
+      }
+      setStepCount(4, cleared ? `${cleared}건 초기화` : '이상 없음');
+    } else {
+      setStepCount(4, '증분 동기화 — 건너뜀');
+    }
+
     // 완료 — 모든 단계 done 처리
-    [1, 2, 3].forEach(i => {
+    [1, 2, 3, 4].forEach(i => {
       const row = document.getElementById(`step-${i}`);
       row.classList.remove('active');
       row.classList.add('done');
@@ -421,6 +451,7 @@ document.getElementById('btn-sync').addEventListener('click', async () => {
       ✅ 동기화 완료 <span style="font-size:12px;color:#6b7280">(${isIncremental ? '증분' : '전체'})</span><br>
       구글→D1 업데이트: <strong>${totalInserted}건</strong>
       &nbsp;|&nbsp; 앱→구글 등록: <strong>${pushed}건</strong>
+      ${cleared ? `&nbsp;|&nbsp; 깨진 연동 정리: <strong>${cleared}건</strong>` : ''}
       ${pushed > 0 ? `<div style="font-size:12px;color:#6b7280;margin-top:4px">블베주문자 라벨로 등록됨</div>` : ''}
     </div>`;
 

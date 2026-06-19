@@ -175,6 +175,23 @@ export default {
         return json({ total: total?.n || 0, synced: synced?.n || 0, unsynced: unsynced?.n || 0 });
       }
 
+      if (path === '/api/customers/synced-google' && method === 'GET') {
+        const rows = await env.DB.prepare(
+          `SELECT id, google_resource_name FROM customers WHERE google_resource_name IS NOT NULL AND google_resource_name != ''`
+        ).all();
+        return json(rows.results);
+      }
+
+      if (path === '/api/customers/clear-google' && method === 'POST') {
+        const { ids } = await request.json();
+        if (!Array.isArray(ids) || !ids.length) return json({ cleared: 0 });
+        const placeholders = ids.map(() => '?').join(',');
+        await env.DB.prepare(
+          `UPDATE customers SET google_resource_name = '', synced_at = NULL WHERE id IN (${placeholders})`
+        ).bind(...ids).run();
+        return json({ cleared: ids.length });
+      }
+
       if (path === '/api/customers/no-google' && method === 'GET') {
         const rows = await env.DB.prepare(
           `SELECT id, name, phone, memo FROM customers WHERE google_resource_name IS NULL OR google_resource_name = '' ORDER BY id DESC`
