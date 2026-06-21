@@ -321,6 +321,20 @@ export default {
 
       // ── 주문 목록 ──────────────────────────────────────
       if (path === '/api/orders' && method === 'GET') {
+        const name = url.searchParams.get('name') || '';
+        if (name) {
+          const rows = await env.DB.prepare(`
+            SELECT o.id, o.order_no, o.total_amount, o.status,
+              c.name AS orderer_name, r.name AS recipient_name
+            FROM orders o
+            LEFT JOIN customers c ON o.orderer_id  = c.id
+            LEFT JOIN customers r ON o.recipient_id = r.id
+            WHERE o.status != '삭제'
+              AND (c.name LIKE ? OR r.name LIKE ?)
+            ORDER BY o.order_no DESC LIMIT 30
+          `).bind(`%${name}%`, `%${name}%`).all();
+          return json(rows.results);
+        }
         const status = url.searchParams.get('status') || '';
         const rows = status
           ? await env.DB.prepare(`
@@ -680,7 +694,7 @@ export default {
       if (path === '/api/transactions' && method === 'GET') {
         const rows = await env.DB.prepare(`
           SELECT t.*,
-            COALESCE((SELECT SUM(amount) FROM txn_links WHERE transaction_id = t.id), 0) AS linked_amount
+            COALESCE((SELECT SUM(amount) FROM txn_links WHERE transaction_id = t.id), 0) + COALESCE(t.adjust_amount, 0) AS linked_amount
           FROM transactions t
           ORDER BY t.txn_at DESC
         `).all();
@@ -722,6 +736,15 @@ export default {
           inserted++;
         }
         return json({ inserted, skipped });
+      }
+
+      if (path.match(/^\/api\/transactions\/\d+\/adjust$/) && method === 'PUT') {
+        const id = path.split('/')[3];
+        const { adjust_amount, adjust_memo } = await request.json();
+        await env.DB.prepare(
+          `UPDATE transactions SET adjust_amount=?, adjust_memo=? WHERE id=?`
+        ).bind(adjust_amount||0, adjust_memo||'', id).run();
+        return json({ ok: true });
       }
 
       if (path.match(/^\/api\/transactions\/\d+\/memo$/) && method === 'PUT') {

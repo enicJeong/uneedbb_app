@@ -18,24 +18,33 @@
   .paste-area textarea:focus { outline: none; border-color: #2563eb; }
   .paste-btns { display: flex; gap: 8px; margin-top: 6px; }
 
-  /* 목록 */
-  .txn-list { display: flex; flex-direction: column; gap: 6px; }
-  .txn-row {
-    border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;
-    background: #fff;
+  /* 테이블 목록 */
+  .txn-table { width: 100%; border-collapse: collapse; }
+  .txn-table thead th {
+    font-size: 11px; font-weight: 700; color: #6b7280;
+    padding: 7px 10px; border-bottom: 2px solid #e5e7eb;
+    text-align: right; background: #f9fafb; white-space: nowrap;
   }
-  .txn-row.withdraw-row { background: #fafafa; }
-  .txn-main {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; cursor: pointer;
-  }
-  .txn-date { font-size: 12px; color: #9ca3af; white-space: nowrap; min-width: 110px; }
-  .txn-memo { font-size: 14px; font-weight: 700; flex: 1; }
+  .txn-table thead th:first-child,
+  .txn-table thead th:nth-child(2),
+  .txn-table thead th:nth-child(3) { text-align: left; }
+  .txn-table tbody tr { border-bottom: 1px solid #f3f4f6; cursor: pointer; }
+  .txn-table tbody tr:hover { background: #f9fafb; }
+  .txn-table tbody tr.withdraw-row { background: #fafafa; }
+  .txn-table tbody tr.withdraw-row:hover { background: #f3f4f6; }
+  .txn-table td { padding: 9px 10px; font-size: 13px; vertical-align: middle; }
+  .txn-date { font-size: 11px; color: #9ca3af; white-space: nowrap; }
+  .txn-memo { font-weight: 700; }
   .txn-desc { font-size: 11px; color: #9ca3af; }
-  .txn-amount { font-size: 15px; font-weight: 800; white-space: nowrap; }
+  .txn-amount { font-size: 14px; font-weight: 800; text-align: right; white-space: nowrap; }
   .txn-amount.deposit { color: #15803d; }
   .txn-amount.withdraw { color: #dc2626; }
-  .txn-balance { font-size: 11px; color: #9ca3af; white-space: nowrap; }
+  .txn-balance { font-size: 12px; color: #374151; text-align: right; white-space: nowrap; }
+  .txn-status-td { text-align: center; }
+  /* 서브 패널 — spans full row */
+  .txn-sub-tr td { padding: 0; }
+  .txn-sub-tr { display: none; }
+  .txn-sub-tr.open { display: table-row; }
 
   .link-badge {
     font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px;
@@ -124,7 +133,20 @@
     입출금 데이터 입력은 <a href="order-bulk.html#txn" style="color:#2563eb;font-weight:700">일괄 작업 → 입출금 탭</a>에서 하세요.
   </div>
 
-  <div class="txn-list" id="txn-list"></div>
+  <table class="txn-table" id="txn-table">
+    <thead>
+      <tr>
+        <th>거래일시</th>
+        <th>거래기록사항</th>
+        <th>거래내용</th>
+        <th>출금</th>
+        <th>입금</th>
+        <th>잔액</th>
+        <th>상태</th>
+      </tr>
+    </thead>
+    <tbody id="txn-list"></tbody>
+  </table>
 </div>
 
 <!-- 주문 연결 모달 -->
@@ -142,6 +164,7 @@
     <div class="selected-orders" id="selected-orders" style="display:none">
       <div style="font-size:12px;color:#6b7280;font-weight:600;margin-bottom:6px">선택된 주문 — 배분금액 입력</div>
       <div id="sel-order-list"></div>
+      <button class="btn btn-outline" id="btn-zero-adjust" style="margin-top:8px;font-size:12px;display:none">0으로 맞추기</button>
     </div>
 
     <div class="remain-info" id="remain-info" style="display:none"></div>
@@ -182,20 +205,16 @@ function linkStatus(txn) {
 }
 
 function render() {
-  const list = document.getElementById('txn-list');
+  const tbody = document.getElementById('txn-list');
   if (!allTxns.length) {
-    list.innerHTML = '<div class="empty">기록이 없습니다</div>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">기록이 없습니다</td></tr>';
     return;
   }
-  list.innerHTML = '';
+  tbody.innerHTML = '';
   allTxns.forEach(t => {
     const isDeposit = t.deposit > 0;
     const status = linkStatus(t);
     const remain = t.deposit - (t.linked_amount || 0);
-
-    const row = document.createElement('div');
-    row.className = 'txn-row' + (isDeposit ? '' : ' withdraw-row');
-    row.dataset.id = t.id;
 
     const badgeHtml = status
       ? `<span class="link-badge badge-${status}">${status}</span>`
@@ -215,19 +234,26 @@ function render() {
         <span>${fmtAmt(remain)}</span>
       </div>` : '';
 
-    row.innerHTML = `
-      <div class="txn-main">
-        <span class="txn-date">${(t.txn_at||'').slice(0,16)}</span>
-        <span class="txn-memo">${t.memo || '-'}
-          <span class="txn-desc">${t.description || ''}</span>
-        </span>
-        <span class="txn-amount ${isDeposit ? 'deposit' : 'withdraw'}">
-          ${isDeposit ? '+' : '-'}${fmtAmt(isDeposit ? t.deposit : t.withdraw)}
-        </span>
-        <span class="txn-balance">${fmtAmt(t.balance)}</span>
-        ${badgeHtml}
-      </div>
-      <div class="txn-sub" id="sub-${t.id}">
+    // 메인 행
+    const tr = document.createElement('tr');
+    tr.className = isDeposit ? '' : 'withdraw-row';
+    tr.dataset.id = t.id;
+    tr.innerHTML = `
+      <td class="txn-date">${(t.txn_at||'').slice(0,16)}</td>
+      <td class="txn-memo">${t.memo || '-'}<br><span class="txn-desc">${t.description || ''}</span></td>
+      <td class="txn-desc">${t.admin_memo ? '📝 ' + t.admin_memo : ''}</td>
+      <td class="txn-amount withdraw">${isDeposit ? '' : fmtAmt(t.withdraw)}</td>
+      <td class="txn-amount deposit">${isDeposit ? fmtAmt(t.deposit) : ''}</td>
+      <td class="txn-balance">${fmtAmt(t.balance)}</td>
+      <td class="txn-status-td">${badgeHtml}</td>`;
+    tbody.appendChild(tr);
+
+    // 서브 패널 행
+    const subTr = document.createElement('tr');
+    subTr.className = 'txn-sub-tr';
+    subTr.id = `sub-tr-${t.id}`;
+    subTr.innerHTML = `<td colspan="7">
+      <div class="txn-sub open" id="sub-${t.id}" style="display:block">
         ${linksHtml}
         ${unallocHtml}
         <div class="admin-memo-wrap">
@@ -241,33 +267,32 @@ function render() {
         </div>` : `<div class="sub-actions">
           <button class="btn btn-outline btn-del-txn" data-txn-id="${t.id}" style="font-size:13px;padding:6px 14px;color:#dc2626;border-color:#fca5a5">삭제</button>
         </div>`}
-      </div>`;
-    list.appendChild(row);
+      </div></td>`;
+    tbody.appendChild(subTr);
 
     // 토글
-    row.querySelector('.txn-main').addEventListener('click', () => {
-      const sub = document.getElementById(`sub-${t.id}`);
-      sub.classList.toggle('open');
+    tr.addEventListener('click', () => {
+      subTr.classList.toggle('open');
     });
 
     // 주문 연결
-    const btnLink = row.querySelector('.btn-link-order');
+    const btnLink = subTr.querySelector('.btn-link-order');
     if (btnLink) btnLink.addEventListener('click', (e) => { e.stopPropagation(); openLinkModal(t); });
 
     // 링크 삭제
-    row.querySelectorAll('.link-del').forEach(btn => {
+    subTr.querySelectorAll('.link-del').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (!confirm('연결을 삭제할까요?')) return;
         await fetch(`${API}/api/txn-links/${btn.dataset.linkId}`, { method: 'DELETE' });
         showToast('연결 삭제됨');
         await load();
-        document.getElementById(`sub-${btn.dataset.txnId}`)?.classList.add('open');
+        document.getElementById(`sub-tr-${btn.dataset.txnId}`)?.classList.add('open');
       });
     });
 
     // 메모 저장
-    row.querySelector('.memo-save-btn').addEventListener('click', async (e) => {
+    subTr.querySelector('.memo-save-btn').addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = e.target.dataset.txnId;
       const memo = document.getElementById(`memo-${id}`).value;
@@ -280,7 +305,7 @@ function render() {
     });
 
     // 삭제
-    row.querySelector('.btn-del-txn').addEventListener('click', async (e) => {
+    subTr.querySelector('.btn-del-txn').addEventListener('click', async (e) => {
       e.stopPropagation();
       if (!confirm('이 거래 기록을 삭제할까요?')) return;
       await fetch(`${API}/api/transactions/${e.target.dataset.txnId}`, { method: 'DELETE' });
@@ -320,7 +345,7 @@ document.getElementById('modal-bg').addEventListener('click', e => {
 async function searchOrders() {
   const q = document.getElementById('order-search').value.trim();
   if (!q) return;
-  const res = await fetch(`${API}/api/orders?q=${encodeURIComponent(q)}&limit=20`);
+  const res = await fetch(`${API}/api/orders?name=${encodeURIComponent(q)}&limit=20`);
   const orders = await res.json();
   const result = document.getElementById('order-result');
   if (!orders.length) { result.innerHTML = '<div style="padding:10px;font-size:13px;color:#9ca3af">결과 없음</div>'; return; }
@@ -358,8 +383,9 @@ function renderSelectedOrders() {
   const wrap = document.getElementById('selected-orders');
   const list = document.getElementById('sel-order-list');
   const keys = Object.keys(selectedOrders);
-  if (!keys.length) { wrap.style.display = 'none'; updateRemain(); return; }
+  if (!keys.length) { wrap.style.display = 'none'; document.getElementById('btn-zero-adjust').style.display = 'none'; updateRemain(); return; }
   wrap.style.display = '';
+  document.getElementById('btn-zero-adjust').style.display = '';
   list.innerHTML = keys.map(id => {
     const o = selectedOrders[id];
     return `<div class="sel-order-row">
@@ -410,6 +436,24 @@ document.getElementById('modal-confirm').addEventListener('click', async () => {
     });
   }
   showToast(`✅ ${links.length}건 연결 + 수금완료 처리됨`);
+  closeModal();
+  await load();
+});
+
+document.getElementById('btn-zero-adjust').addEventListener('click', async () => {
+  if (!currentTxn) return;
+  const unallocated = currentTxn.deposit - (currentTxn.linked_amount || 0);
+  const allocating = Object.values(selectedOrders).reduce((s, o) => s + (o.amount || 0), 0);
+  const remain = unallocated - allocating;
+  if (remain === 0) return;
+  const memo = prompt(`잔액 ${fmtAmt(remain)}을 0으로 맞춥니다.\n사유를 입력하세요:`);
+  if (memo === null) return;
+  await fetch(`${API}/api/transactions/${currentTxn.id}/adjust`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ adjust_amount: remain, adjust_memo: memo })
+  });
+  showToast('잔액이 0으로 처리되었습니다');
   closeModal();
   await load();
 });
