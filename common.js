@@ -224,7 +224,7 @@ function renderItems(items, onUpdate) {
       <td>
         <div style="display:flex;align-items:center;gap:4px">
           <button class="qty-btn qty-minus" data-idx="${i}" style="width:28px;height:28px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;font-size:16px;cursor:pointer;line-height:1">−</button>
-          <span class="qty-display" data-idx="${i}" style="min-width:28px;text-align:center;font-weight:700;font-size:14px">${item.qty}</span>
+          <input type="text" class="qty-display" data-idx="${i}" value="${item.qty_expr || item.qty}" style="width:64px;text-align:center;font-weight:700;font-size:14px;border:1px solid #d1d5db;border-radius:6px;padding:3px 4px">
           <button class="qty-btn qty-plus" data-idx="${i}" style="width:28px;height:28px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;font-size:16px;cursor:pointer;line-height:1">+</button>
           <div style="display:flex;flex-direction:column;gap:3px;margin-left:4px">
             ${[[1,2,3,4,5],[6,7,8,9,10]].map(row =>
@@ -264,16 +264,38 @@ function renderItems(items, onUpdate) {
       if (onUpdate) onUpdate(items);
     });
   });
+  function evalQty(expr) {
+    const n = String(expr).replace(/[^0-9\*]/g, '');
+    try { return Math.max(1, n.split('*').reduce((a, b) => a * (+b || 1), 1)); } catch { return 1; }
+  }
+
+  document.querySelectorAll('.qty-display').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const i = +inp.dataset.idx;
+      const val = inp.value.trim();
+      items[i].qty_expr = val;
+      items[i].qty = evalQty(val);
+      inp.value = val;
+      if (onUpdate) onUpdate(items);
+    });
+    inp.addEventListener('click', e => e.stopPropagation());
+  });
   document.querySelectorAll('.qty-minus').forEach(btn => {
     btn.addEventListener('click', () => {
       const i = +btn.dataset.idx;
-      if (items[i].qty > 1) { items[i].qty--; renderItems(items, onUpdate); if (onUpdate) onUpdate(items); }
+      if (items[i].qty > 1) {
+        items[i].qty--;
+        items[i].qty_expr = String(items[i].qty);
+        renderItems(items, onUpdate);
+        if (onUpdate) onUpdate(items);
+      }
     });
   });
   document.querySelectorAll('.qty-plus').forEach(btn => {
     btn.addEventListener('click', () => {
       const i = +btn.dataset.idx;
       items[i].qty++;
+      items[i].qty_expr = String(items[i].qty);
       renderItems(items, onUpdate);
       if (onUpdate) onUpdate(items);
     });
@@ -282,6 +304,7 @@ function renderItems(items, onUpdate) {
     btn.addEventListener('click', () => {
       const i = +btn.dataset.idx;
       items[i].qty = +btn.dataset.val;
+      items[i].qty_expr = btn.dataset.val;
       renderItems(items, onUpdate);
       if (onUpdate) onUpdate(items);
     });

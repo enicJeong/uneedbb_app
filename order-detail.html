@@ -518,7 +518,7 @@ async function searchTxns() {
   const res = await fetch(`${API}/api/transactions?q=${encodeURIComponent(q)}`);
   const txns = await res.json();
   const result = document.getElementById('txn-result');
-  result.style.display = '';
+  result.style.display = 'block';
   if (!txns.length) {
     result.innerHTML = '<div style="padding:10px;font-size:13px;color:#9ca3af">결과 없음</div>';
     return;
