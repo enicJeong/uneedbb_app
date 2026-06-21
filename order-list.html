@@ -12,8 +12,9 @@
   .desktop-table { display: none; }
   @media (min-width: 768px) {
     .mobile-list   { display: none; }
-    .desktop-table { display: block; }
+    .desktop-table { display: block; overflow-x: auto; }
   }
+  .tbl { min-width: 900px; }
 
   .print-chk { width: 16px; height: 16px; cursor: pointer; accent-color: #10b981; }
   .sel-chk   { display: none; }
@@ -153,7 +154,6 @@
           <th>배송</th>
           <th>주소</th>
           <th>택배송장</th>
-          <th>수금</th>
           <th></th>
         </tr>
       </thead>
@@ -296,7 +296,6 @@ function renderOrders() {
         <div class="badges">
           <span class="badge badge-p${priorityClass}">P${o.priority}</span>
           <span class="badge badge-${o.status}">${o.status}</span>
-          <span class="badge badge-${o.payment_status}">${o.payment_status}</span>
         </div>
       </div>
       <div class="order-names">${o.orderer_name}${recipientText}</div>
@@ -350,7 +349,6 @@ function renderOrders() {
           ? `<a href="https://www.ilogen.com/m/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;text-decoration:none">${o.tracking_no}</a>`
           : ''}
       </td>
-      <td><span class="badge badge-${o.payment_status}">${o.payment_status}</span></td>
       <td style="text-align:center;white-space:nowrap">
         <button class="btn-detail" data-id="${o.id}" style="padding:4px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;color:#374151;cursor:pointer;white-space:nowrap">상세 →</button>
       </td>`;
