@@ -562,24 +562,19 @@ document.getElementById('btn-txn-link-confirm').addEventListener('click', async 
     body: JSON.stringify({ status: '수금완료' })
   });
 
-  // 3. 잔액 확인 → 0원이면 트랜잭션 자동 완료
-  const txnRes = await fetch(`${API}/api/transactions`);
-  const txns = await txnRes.json();
-  const txn = txns.find(t => t.id === selectedTxn.id);
-  if (txn) {
-    const remain = txn.deposit - (txn.linked_amount || 0);
-    if (remain <= 0) {
-      await fetch(`${API}/api/transactions/${selectedTxn.id}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txn_status: '완료' })
-      });
-      showToast('✅ 입금 연결 완료 — 잔액 0원, 트랜잭션 완료 처리됨');
-    } else {
-      showToast(`✅ 입금 연결됨 — 잔액 ${remain.toLocaleString()}원 남음`);
-    }
+  // 3. 잔액 확인 → 0원이면 트랜잭션 자동 완료 (단건 조회)
+  const txnRes = await fetch(`${API}/api/transactions/${selectedTxn.id}`);
+  const txn = await txnRes.json();
+  const remain = txn.deposit - (txn.linked_amount || 0);
+  if (remain <= 0) {
+    await fetch(`${API}/api/transactions/${selectedTxn.id}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txn_status: '완료' })
+    });
+    showToast('✅ 입금 연결 완료 — 잔액 0원, 트랜잭션 완료 처리됨');
   } else {
-    showToast('✅ 입금 연결됨');
+    showToast(`✅ 입금 연결됨 — 잔액 ${remain.toLocaleString()}원 남음`);
   }
 
   document.getElementById('txn-link-form').style.display = 'none';

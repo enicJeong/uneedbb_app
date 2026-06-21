@@ -807,20 +807,59 @@ export default {
         return json(rows.results);
       }
 
+      // ② 단건 트랜잭션 조회
+      if (path.match(/^\/api\/transactions\/\d+$/) && method === 'GET') {
+        const id = path.split('/')[3];
+        const txn = await env.DB.prepare(`
+          SELECT t.*,
+            COALESCE((SELECT SUM(amount) FROM txn_links WHERE transaction_id = t.id), 0) + COALESCE(t.adjust_amount, 0) AS linked_amount
+          FROM transactions t WHERE t.id = ?
+        `).bind(id).first();
+        if (!txn) return err('Not found', 404);
+        const links = await env.DB.prepare(`
+          SELECT l.*, o.order_no, o.id AS order_id, c.name AS orderer_name
+          FROM txn_links l
+          JOIN orders o ON l.order_id = o.id
+          LEFT JOIN customers c ON o.orderer_id = c.id
+          WHERE l.transaction_id = ?
+        `).bind(id).all();
+        return json({ ...txn, links: links.results });
+      }
+
       if (path.match(/^\/api\/transactions\/\d+\/links$/) && method === 'POST') {
         const id = path.split('/')[3];
-        const { links } = await request.json(); // [{order_id, amount}]
+        const { links } = await request.json();
         for (const l of links) {
-          await env.DB.prepare(`
-            INSERT INTO txn_links (transaction_id, order_id, amount) VALUES (?, ?, ?)
-          `).bind(id, l.order_id, l.amount).run();
+          // ③ 중복 연결 방지
+          const exists = await env.DB.prepare(
+            `SELECT id FROM txn_links WHERE transaction_id=? AND order_id=?`
+          ).bind(id, l.order_id).first();
+          if (exists) continue;
+          await env.DB.prepare(
+            `INSERT INTO txn_links (transaction_id, order_id, amount) VALUES (?, ?, ?)`
+          ).bind(id, l.order_id, l.amount).run();
         }
         return json({ ok: true });
       }
 
       if (path.match(/^\/api\/txn-links\/\d+$/) && method === 'DELETE') {
         const id = path.split('/')[3];
+        // ④ 삭제 전 order_id 조회 → 다른 링크 없으면 수금완료 복원
+        const link = await env.DB.prepare(`SELECT order_id FROM txn_links WHERE id=?`).bind(id).first();
         await env.DB.prepare(`DELETE FROM txn_links WHERE id=?`).bind(id).run();
+        if (link) {
+          const remaining = await env.DB.prepare(
+            `SELECT COUNT(*) AS n FROM txn_links WHERE order_id=?`
+          ).bind(link.order_id).first();
+          if (!remaining.n) {
+            const order = await env.DB.prepare(`SELECT status FROM orders WHERE id=?`).bind(link.order_id).first();
+            if (order?.status === '수금완료') {
+              await env.DB.prepare(
+                `UPDATE orders SET status='배송완료' WHERE id=?`
+              ).bind(link.order_id).run();
+            }
+          }
+        }
         return json({ ok: true });
       }
 

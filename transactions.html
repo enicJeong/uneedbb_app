@@ -147,6 +147,15 @@
     입출금 데이터 입력은 <a href="order-bulk.html#txn" style="color:#2563eb;font-weight:700">일괄 작업 → 입출금 탭</a>에서 하세요.
   </div>
 
+  <!-- ⑤ 검색 + ⑧ 날짜 + ⑥ 수기등록 -->
+  <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+    <input type="text" id="txn-search" placeholder="입금자·금액 검색" style="flex:1;min-width:140px;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
+    <input type="date" id="date-from" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px">
+    <span style="font-size:12px;color:#9ca3af">~</span>
+    <input type="date" id="date-to" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:8px;font-size:12px">
+    <button class="btn btn-outline" id="btn-manual-txn" style="white-space:nowrap">+ 수기 등록</button>
+  </div>
+
   <div class="status-filter">
     <button class="active" data-filter="">전체</button>
     <button data-filter="미연결">미연결</button>
@@ -169,6 +178,33 @@
     </thead>
     <tbody id="txn-list"></tbody>
   </table>
+</div>
+
+<!-- 수기 입금 등록 모달 -->
+<div class="modal-bg" id="manual-modal-bg" style="display:none">
+  <div class="modal-box">
+    <h3>✏️ 수기 입금 등록</h3>
+    <div class="field" style="margin-bottom:10px">
+      <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">거래일시</label>
+      <input type="datetime-local" id="manual-txn-at" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
+    </div>
+    <div class="field" style="margin-bottom:10px">
+      <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">입금자명</label>
+      <input type="text" id="manual-memo" placeholder="홍길동" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
+    </div>
+    <div class="field" style="margin-bottom:10px">
+      <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">입금액</label>
+      <input type="number" id="manual-deposit" placeholder="0" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">메모 (선택)</label>
+      <input type="text" id="manual-desc" placeholder="비고" style="width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px">
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-outline" id="manual-cancel">취소</button>
+      <button class="btn btn-success" id="manual-confirm">등록</button>
+    </div>
+  </div>
 </div>
 
 <!-- 주문 연결 모달 -->
@@ -233,9 +269,19 @@ function fmtAmt(n) { return (n || 0).toLocaleString() + '원'; }
 
 function render() {
   const tbody = document.getElementById('txn-list');
-  const visible = statusFilter
-    ? allTxns.filter(t => calcStatus(t) === statusFilter)
-    : allTxns;
+  const searchQ = document.getElementById('txn-search').value.trim().toLowerCase();
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo   = document.getElementById('date-to').value;
+
+  let visible = statusFilter ? allTxns.filter(t => calcStatus(t) === statusFilter) : allTxns;
+  if (searchQ) visible = visible.filter(t =>
+    (t.memo||'').toLowerCase().includes(searchQ) ||
+    (t.description||'').toLowerCase().includes(searchQ) ||
+    String(t.deposit||'').includes(searchQ) ||
+    String(t.withdraw||'').includes(searchQ)
+  );
+  if (dateFrom) visible = visible.filter(t => (t.txn_at||'') >= dateFrom);
+  if (dateTo)   visible = visible.filter(t => (t.txn_at||'') <= dateTo + 'T23:59');
 
   if (!visible.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#9ca3af">기록이 없습니다</td></tr>';
@@ -252,7 +298,7 @@ function render() {
 
     const linksHtml = (t.links || []).map(l => `
       <div class="link-row">
-        <span class="link-order-no">${l.order_no}</span>
+        <a href="order-detail.html?id=${l.order_id}" target="_blank" class="link-order-no" style="text-decoration:none">${l.order_no}</a>
         <span class="link-name">${l.orderer_name || ''}</span>
         <span class="link-amount">${fmtAmt(l.amount)}</span>
         <button class="link-del" data-link-id="${l.id}" data-txn-id="${t.id}">✕</button>
@@ -281,6 +327,7 @@ function render() {
     subTr.id = `sub-tr-${t.id}`;
     subTr.innerHTML = `<td colspan="7"><div class="txn-sub" id="sub-${t.id}">
         ${linksHtml}
+        ${isDeposit && status !== '완료' ? `<div class="auto-match-wrap" id="match-${t.id}" style="margin:6px 0;padding:6px 10px;background:#eff6ff;border-radius:8px;font-size:12px;color:#6b7280">🔍 매칭 조회 중...</div>` : ''}
         ${unallocHtml}
         ${t.adjust_memo ? `<div style="font-size:12px;color:#6b7280;margin-top:4px">기타처리: ${t.adjust_memo}</div>` : ''}
         <div class="admin-memo-wrap">
@@ -298,7 +345,10 @@ function render() {
       </div></td>`;
     tbody.appendChild(subTr);
 
-    tr.addEventListener('click', () => subTr.classList.toggle('open'));
+    tr.addEventListener('click', () => {
+      subTr.classList.toggle('open');
+      if (subTr.classList.contains('open') && isDeposit && status !== '완료') loadAutoMatch(t, subTr);
+    });
 
     const btnLink = subTr.querySelector('.btn-link-order');
     if (btnLink) btnLink.addEventListener('click', (e) => { e.stopPropagation(); openLinkModal(t); });
@@ -519,6 +569,11 @@ document.getElementById('modal-confirm').addEventListener('click', async () => {
       body: JSON.stringify({ status: '수금완료' })
     });
   }
+  // 잔액 0 → 트랜잭션 완료
+  await fetch(`${API}/api/transactions/${currentTxn.id}/status`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ txn_status: '완료' })
+  });
   showToast(`✅ ${links.length}건 연결 + 수금완료 처리됨`);
   closeModal();
   await load();
@@ -534,6 +589,12 @@ document.getElementById('modal-force-complete').addEventListener('click', async 
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ links })
     });
+    for (const o of Object.values(selectedOrders)) {
+      await fetch(`${API}/api/orders/${o.id}/status`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: '수금완료' })
+      });
+    }
   }
   await fetch(`${API}/api/transactions/${currentTxn.id}/status`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },
@@ -566,6 +627,96 @@ document.getElementById('btn-zero-adjust').addEventListener('click', async () =>
   });
   showToast('기타 처리됨');
   closeModal();
+  await load();
+});
+
+// ── ⑤⑧ 검색/날짜 필터 ────────────────────────────────
+document.getElementById('txn-search').addEventListener('input', render);
+document.getElementById('date-from').addEventListener('change', render);
+document.getElementById('date-to').addEventListener('change', render);
+
+// ── ① 자동 매칭 ────────────────────────────────────────
+async function loadAutoMatch(t, subTr) {
+  const el = subTr.querySelector(`#match-${t.id}`);
+  if (!el || el.dataset.loaded) return;
+  el.dataset.loaded = '1';
+
+  const name = (t.memo || '').trim();
+  if (!name) { el.style.display = 'none'; return; }
+
+  const linkedOrderIds = new Set((t.links || []).map(l => l.order_id));
+
+  const res = await fetch(`${API}/api/orders?name=${encodeURIComponent(name)}&limit=20`);
+  const orders = await res.json();
+  const unlinked = orders.filter(o => !linkedOrderIds.has(o.id) && o.status !== '수금완료' && o.status !== '삭제');
+
+  if (!unlinked.length) {
+    el.innerHTML = `<span style="color:#9ca3af">🔍 "${name}" 미수 주문 없음</span>`;
+    return;
+  }
+
+  el.innerHTML = `<div style="font-weight:700;color:#1d4ed8;margin-bottom:4px">🔍 "${name}" 미수 주문 ${unlinked.length}건</div>` +
+    unlinked.map(o => `
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #dbeafe">
+        <a href="order-detail.html?id=${o.id}" target="_blank" style="font-weight:700;color:#1d4ed8;min-width:90px;text-decoration:none">${o.order_no||'#'+o.id}</a>
+        <span style="flex:1;color:#374151">${o.orderer_name||''}${o.recipient_name&&o.recipient_name!==o.orderer_name?' › '+o.recipient_name:''}</span>
+        <span style="color:#15803d;font-weight:700;white-space:nowrap">${(o.total_amount||0).toLocaleString()}원</span>
+        <button class="btn-auto-link" data-order-id="${o.id}" data-order-no="${o.order_no||'#'+o.id}" data-amount="${o.total_amount||0}"
+          style="padding:3px 10px;border:1px solid #2563eb;border-radius:6px;background:#eff6ff;color:#2563eb;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">연결</button>
+      </div>`).join('');
+
+  el.querySelectorAll('.btn-auto-link').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const orderId = +btn.dataset.orderId;
+      const amount  = +btn.dataset.amount;
+      await fetch(`${API}/api/transactions/${t.id}/links`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ links: [{ order_id: orderId, amount }] })
+      });
+      await fetch(`${API}/api/orders/${orderId}/status`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: '수금완료' })
+      });
+      const txn = await (await fetch(`${API}/api/transactions/${t.id}`)).json();
+      if ((txn.deposit - (txn.linked_amount||0)) <= 0) {
+        await fetch(`${API}/api/transactions/${t.id}/status`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ txn_status: '완료' })
+        });
+      }
+      showToast(`✅ ${btn.dataset.orderNo} 연결됨`);
+      await load();
+      document.getElementById(`sub-tr-${t.id}`)?.classList.add('open');
+    });
+  });
+}
+
+// ── ⑥ 수기 입금 등록 ──────────────────────────────────
+document.getElementById('btn-manual-txn').addEventListener('click', () => {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('manual-txn-at').value = now.toISOString().slice(0, 16);
+  document.getElementById('manual-memo').value = '';
+  document.getElementById('manual-deposit').value = '';
+  document.getElementById('manual-desc').value = '';
+  document.getElementById('manual-modal-bg').style.display = 'flex';
+});
+document.getElementById('manual-cancel').addEventListener('click', () => {
+  document.getElementById('manual-modal-bg').style.display = 'none';
+});
+document.getElementById('manual-confirm').addEventListener('click', async () => {
+  const txn_at = document.getElementById('manual-txn-at').value;
+  const memo    = document.getElementById('manual-memo').value.trim();
+  const deposit = parseInt(document.getElementById('manual-deposit').value) || 0;
+  const desc    = document.getElementById('manual-desc').value.trim();
+  if (!txn_at || !memo || !deposit) { showToast('날짜·입금자명·금액은 필수입니다'); return; }
+  await fetch(`${API}/api/transactions`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify([{ seq_no: 0, txn_at: txn_at.replace('T',' '), withdraw: 0, deposit, balance: 0, description: desc, memo, branch: '수기' }])
+  });
+  showToast('✅ 수기 입금 등록됨');
+  document.getElementById('manual-modal-bg').style.display = 'none';
   await load();
 });
 
