@@ -248,7 +248,7 @@ let statusFilter = '미연결';
 // ── 상태 계산 ─────────────────────────────────────────
 function calcStatus(t) {
   if (!t.deposit) return null;
-  if (t.txn_status === '기타') return '기타';
+  if (t.txn_status === '기타' || t.adjust_amount > 0) return '기타';
   if (t.txn_status === '완료') return '완료';
   const linked = t.linked_amount || 0;
   if (linked === 0) return '미연결';
