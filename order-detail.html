@@ -120,16 +120,6 @@
     </div>
   </div>
 
-  <!-- 수금 -->
-  <div class="card">
-    <h2>수금 상태</h2>
-    <div class="info-row">
-      <span class="info-label">수금 상태</span>
-      <span class="info-value" id="d-payment-status"></span>
-    </div>
-    <div class="btn-row" style="margin-top:12px" id="payment-btns"></div>
-  </div>
-
   <!-- 입금 연결 -->
   <div class="card" id="txn-card">
     <h2>입금 연결</h2>
@@ -340,19 +330,6 @@ function render() {
   document.getElementById('tracking-card').style.display =
     order.delivery_type === '택배' ? '' : 'none';
 
-  // 수금
-  document.getElementById('d-payment-status').innerHTML =
-    `<span class="badge badge-${order.payment_status}">${order.payment_status}</span>`;
-  const payBtns = document.getElementById('payment-btns');
-  payBtns.innerHTML = '';
-  ['미수', '부분수금', '수금'].forEach(s => {
-    if (s === order.payment_status) return;
-    const btn = document.createElement('button');
-    btn.className = 'btn btn-outline';
-    btn.textContent = s + ' 처리';
-    btn.addEventListener('click', () => updatePayment(s));
-    payBtns.appendChild(btn);
-  });
 }
 
 async function updateStatus(status) {
@@ -381,27 +358,6 @@ async function confirmOrder() {
   await loadOrder();
 }
 
-async function updatePayment(payment_status) {
-  await fetch(`${API}/api/orders/${orderId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      order_no:       order.order_no,
-      orderer_id:     order.orderer_id,
-      recipient_id:   order.recipient_id,
-      address_id:     order.address_id,
-      delivery_type:  order.delivery_type,
-      priority:       order.priority,
-      memo:           order.memo,
-      items:          order.items,
-      shipping_fee:   order.shipping_fee,
-      status:         order.status,
-      payment_status
-    })
-  });
-  showToast(`✅ ${payment_status} 처리 완료`);
-  await loadOrder();
-}
 
 document.getElementById('tracking-input').addEventListener('input', (e) => {
   const digits = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);

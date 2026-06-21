@@ -513,9 +513,16 @@ export default {
       if (path.match(/^\/api\/orders\/\d+\/status$/) && method === 'PUT') {
         const id = path.split('/')[3];
         const { status } = await request.json();
-        await env.DB.prepare(
-          `UPDATE orders SET status=?, updated_at=datetime('now','localtime') WHERE id=?`
-        ).bind(status, id).run();
+        const paymentStatus = status === '수금완료' ? '수금' : undefined;
+        if (paymentStatus) {
+          await env.DB.prepare(
+            `UPDATE orders SET status=?, payment_status=?, updated_at=datetime('now','localtime') WHERE id=?`
+          ).bind(status, paymentStatus, id).run();
+        } else {
+          await env.DB.prepare(
+            `UPDATE orders SET status=?, updated_at=datetime('now','localtime') WHERE id=?`
+          ).bind(status, id).run();
+        }
 
         // 배송완료 시 SMS 등록
         if (status === '배송완료') {
@@ -855,7 +862,7 @@ export default {
             const order = await env.DB.prepare(`SELECT status FROM orders WHERE id=?`).bind(link.order_id).first();
             if (order?.status === '수금완료') {
               await env.DB.prepare(
-                `UPDATE orders SET status='배송완료' WHERE id=?`
+                `UPDATE orders SET status='배송완료', payment_status='미수' WHERE id=?`
               ).bind(link.order_id).run();
             }
           }
