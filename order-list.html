@@ -84,6 +84,13 @@
   }
   .search-row input:focus { border-color: #2563eb; }
   .search-count { font-size: 12px; color: #9ca3af; align-self: center; white-space: nowrap; }
+  #order-footer {
+    margin-top: 20px; padding: 12px 16px;
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+    font-size: 14px; font-weight: 600; color: #374151;
+    display: flex; gap: 20px;
+  }
+  #order-footer span { color: #2563eb; }
 </style>
 </head>
 <body>
@@ -155,6 +162,9 @@
   </div>
 
   <div id="empty-msg" style="display:none" class="empty">해당하는 주문이 없습니다</div>
+  <div id="order-footer">
+    현재 주문 <span id="footer-count">0</span>건 &nbsp;·&nbsp; 수량 합계 <span id="footer-qty">0</span>kg
+  </div>
 </div>
 
 <!-- 하단 플로팅 바 -->
@@ -258,6 +268,10 @@ function renderOrders() {
   const empty = document.getElementById('empty-msg');
   document.getElementById('search-count').textContent =
     searchQuery ? `${filtered.length}건` : '';
+
+  const totalQty = filtered.reduce((s, o) => s + (o.total_qty || 0), 0);
+  document.getElementById('footer-count').textContent = filtered.length;
+  document.getElementById('footer-qty').textContent = totalQty;
 
   if (!filtered.length) {
     document.getElementById('mobile-list').innerHTML = '';
