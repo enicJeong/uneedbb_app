@@ -178,11 +178,25 @@ document.getElementById('btn-google').addEventListener('click', () => {
   tokenClient.requestAccessToken();
 });
 
+async function fetchAllCustomers() {
+  const all = [];
+  let offset = 0;
+  while (true) {
+    const res = await fetch(`${API}/api/customers?synced=&offset=${offset}`);
+    const batch = await res.json();
+    all.push(...batch);
+    if (batch.length < 500) break;
+    offset += 500;
+  }
+  return all;
+}
+
 document.getElementById('btn-sync-google').addEventListener('click', async () => {
   if (!accessToken) { showToast('Google 먼저 연결하세요'); return; }
-  showToast('전체 고객 불러오는 중...');
-  const allRes = await fetch(`${API}/api/customers?synced=`);
-  const syncTargets = await allRes.json();
+  showToast('미동기화 고객 불러오는 중...');
+  const res = await fetch(`${API}/api/customers?synced=0&offset=0`);
+  const syncTargets = await res.json();
+  if (!syncTargets.length) { showToast('✅ 모두 동기화되어 있습니다'); return; }
   showToast(`Google 동기화 중... (${syncTargets.length}명)`);
   let created = 0, updated = 0, fail = 0;
   for (const c of syncTargets) {

@@ -136,10 +136,11 @@ export default {
             ).bind(`%${q}%`, `%${q}%`, `%${q}%`).all();
           }
         } else {
+          const offset = parseInt(url.searchParams.get('offset') || '0');
           rows = await env.DB.prepare(
-            `SELECT id, name, phone, memo, synced_at FROM customers
-             WHERE 1=1 ${syncedCond} ORDER BY name LIMIT 200`
-          ).all();
+            `SELECT id, name, phone, memo, synced_at, google_resource_name FROM customers
+             WHERE 1=1 ${syncedCond} ORDER BY id LIMIT 500 OFFSET ?`
+          ).bind(offset).all();
         }
         return json(rows.results);
       }
