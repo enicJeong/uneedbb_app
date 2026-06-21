@@ -120,14 +120,20 @@ export default {
         if (q) {
           if (qn) {
             rows = await env.DB.prepare(
-              `SELECT id, name, phone, memo, synced_at FROM customers
-               WHERE (name LIKE ? OR phone LIKE ?) ${syncedCond} ORDER BY name LIMIT 100`
-            ).bind(`%${q}%`, `%${qn}%`).all();
+              `SELECT DISTINCT c.id, c.name, c.phone, c.memo, c.synced_at,
+                 (SELECT a2.address FROM addresses a2 WHERE a2.customer_id = c.id AND a2.address LIKE ? LIMIT 1) AS matched_address
+               FROM customers c
+               LEFT JOIN addresses a ON a.customer_id = c.id
+               WHERE (c.name LIKE ? OR c.phone LIKE ? OR a.address LIKE ?) ${syncedCond} ORDER BY c.name LIMIT 100`
+            ).bind(`%${q}%`, `%${q}%`, `%${qn}%`, `%${q}%`).all();
           } else {
             rows = await env.DB.prepare(
-              `SELECT id, name, phone, memo, synced_at FROM customers
-               WHERE name LIKE ? ${syncedCond} ORDER BY name LIMIT 100`
-            ).bind(`%${q}%`).all();
+              `SELECT DISTINCT c.id, c.name, c.phone, c.memo, c.synced_at,
+                 (SELECT a2.address FROM addresses a2 WHERE a2.customer_id = c.id AND a2.address LIKE ? LIMIT 1) AS matched_address
+               FROM customers c
+               LEFT JOIN addresses a ON a.customer_id = c.id
+               WHERE (c.name LIKE ? OR a.address LIKE ?) ${syncedCond} ORDER BY c.name LIMIT 100`
+            ).bind(`%${q}%`, `%${q}%`, `%${q}%`).all();
           }
         } else {
           rows = await env.DB.prepare(
@@ -742,8 +748,15 @@ export default {
         const id = path.split('/')[3];
         const { adjust_amount, adjust_memo } = await request.json();
         await env.DB.prepare(
-          `UPDATE transactions SET adjust_amount=?, adjust_memo=? WHERE id=?`
+          `UPDATE transactions SET adjust_amount=?, adjust_memo=?, txn_status='기타' WHERE id=?`
         ).bind(adjust_amount||0, adjust_memo||'', id).run();
+        return json({ ok: true });
+      }
+
+      if (path.match(/^\/api\/transactions\/\d+\/status$/) && method === 'PUT') {
+        const id = path.split('/')[3];
+        const { txn_status } = await request.json();
+        await env.DB.prepare(`UPDATE transactions SET txn_status=? WHERE id=?`).bind(txn_status||'', id).run();
         return json({ ok: true });
       }
 

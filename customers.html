@@ -46,6 +46,7 @@
     background: #f9fafb; font-size: 12px; font-weight: 600; cursor: pointer; color: #6b7280; }
   .sync-filter button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
   .no-result { color: #9ca3af; font-size: 14px; padding: 24px 0; text-align: center; }
+  .customer-addr-match { font-size: 11px; color: #2563eb; margin-top: 3px; }
 </style>
 </head>
 <body>
@@ -286,6 +287,7 @@ function renderList() {
       <div class="customer-name">${c.name}</div>
       <div class="customer-phone">${formatPhone(c.phone)}</div>
       ${c.memo ? `<div class="customer-memo">${c.memo}</div>` : ''}
+      ${c.matched_address ? `<div class="customer-addr-match">📍 ${c.matched_address}</div>` : ''}
       ${c.synced_at ? `<div style="font-size:10px;color:#9ca3af;margin-top:2px">🔄 ${c.synced_at.slice(0,16)}</div>` : '<div style="font-size:10px;color:#fca5a5;margin-top:2px">미동기화</div>'}`;
     div.addEventListener('click', () => openModal(c));
     list.appendChild(div);
