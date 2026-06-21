@@ -471,6 +471,14 @@ document.getElementById('tab-cash').addEventListener('click', () => {
   document.getElementById('tab-transfer').classList.remove('active');
   document.getElementById('panel-cash').style.display = '';
   document.getElementById('panel-transfer').style.display = 'none';
+  // 금액: 청구금액 프리셋 (비어있을 때만)
+  if (!document.getElementById('cash-amount').value && order?.total_amount) {
+    document.getElementById('cash-amount').value = order.total_amount;
+  }
+  // 날짜: 오늘 프리셋 (비어있을 때만)
+  if (!document.getElementById('cash-date').value) {
+    document.getElementById('cash-date').value = new Date().toISOString().slice(0, 10);
+  }
   loadCashPayments();
 });
 
