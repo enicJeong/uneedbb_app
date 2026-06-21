@@ -123,18 +123,44 @@
   <!-- 입금 연결 -->
   <div class="card" id="txn-card">
     <h2>입금 연결</h2>
-    <div id="txn-links-list"><div style="color:#9ca3af;font-size:13px">연결된 입금 없음</div></div>
-    <div id="txn-linked-total" style="display:none;margin-top:8px;padding:6px 10px;border-radius:7px;font-size:13px;font-weight:700"></div>
-    <div class="txn-search-row">
-      <input type="text" id="txn-search-input" placeholder="거래 검색 (이름·금액·날짜)">
-      <button class="btn btn-outline" id="btn-txn-search">검색</button>
+    <div class="toggle-row" style="margin-bottom:12px">
+      <button class="toggle-btn active" id="tab-transfer">이체</button>
+      <button class="toggle-btn" id="tab-cash">현금</button>
     </div>
-    <div class="txn-result" id="txn-result"></div>
-    <div class="txn-link-form" id="txn-link-form">
-      <span id="txn-selected-label" style="flex:1;font-weight:600"></span>
-      <input type="number" id="txn-link-amount" placeholder="배분금액">원
-      <button class="btn btn-success" id="btn-txn-link-confirm" style="font-size:12px;padding:5px 12px">연결</button>
-      <button class="btn btn-outline" id="btn-txn-link-cancel" style="font-size:12px;padding:5px 10px">취소</button>
+
+    <!-- 합계 (공통) -->
+    <div id="txn-linked-total" style="display:none;margin-bottom:10px;padding:8px 10px;border-radius:7px;font-size:13px;font-weight:700"></div>
+
+    <!-- 이체 탭 -->
+    <div id="panel-transfer">
+      <div id="txn-links-list"><div style="color:#9ca3af;font-size:13px">연결된 입금 없음</div></div>
+      <div class="txn-search-row" style="margin-top:10px">
+        <input type="text" id="txn-search-input" placeholder="거래 검색 (이름·금액·날짜)">
+        <button class="btn btn-outline" id="btn-txn-search">검색</button>
+      </div>
+      <div class="txn-result" id="txn-result"></div>
+      <div class="txn-link-form" id="txn-link-form">
+        <span id="txn-selected-label" style="flex:1;font-weight:600"></span>
+        <input type="number" id="txn-link-amount" placeholder="배분금액">원
+        <button class="btn btn-success" id="btn-txn-link-confirm" style="font-size:12px;padding:5px 12px">연결</button>
+        <button class="btn btn-outline" id="btn-txn-link-cancel" style="font-size:12px;padding:5px 10px">취소</button>
+      </div>
+    </div>
+
+    <!-- 현금 탭 -->
+    <div id="panel-cash" style="display:none">
+      <div id="cash-list"><div style="color:#9ca3af;font-size:13px">현금 입금 없음</div></div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="number" id="cash-amount" placeholder="금액" style="flex:1;padding:7px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:14px">
+          <span style="color:#6b7280;font-size:14px">원</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <input type="date" id="cash-date" style="flex:1;padding:7px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:14px">
+          <input type="text" id="cash-memo" placeholder="메모" style="flex:2;padding:7px 10px;border:1px solid #d1d5db;border-radius:7px;font-size:14px">
+        </div>
+        <button class="btn btn-success" id="btn-cash-add" style="align-self:flex-end;padding:6px 18px">+ 현금 추가</button>
+      </div>
     </div>
   </div>
 
@@ -433,35 +459,27 @@ loadOrder();
 // ── 입금 연결 ─────────────────────────────────────────
 let selectedTxn = null;
 
-async function loadTxnLinks() {
-  const res = await fetch(`${API}/api/orders/${orderId}/txn-links`);
-  const links = await res.json();
-  const list = document.getElementById('txn-links-list');
+// 탭 전환
+document.getElementById('tab-transfer').addEventListener('click', () => {
+  document.getElementById('tab-transfer').classList.add('active');
+  document.getElementById('tab-cash').classList.remove('active');
+  document.getElementById('panel-transfer').style.display = '';
+  document.getElementById('panel-cash').style.display = 'none';
+});
+document.getElementById('tab-cash').addEventListener('click', () => {
+  document.getElementById('tab-cash').classList.add('active');
+  document.getElementById('tab-transfer').classList.remove('active');
+  document.getElementById('panel-cash').style.display = '';
+  document.getElementById('panel-transfer').style.display = 'none';
+  loadCashPayments();
+});
+
+async function renderPaymentSummary(transferTotal, cashTotal) {
   const totalEl = document.getElementById('txn-linked-total');
-  if (!links.length) {
-    list.innerHTML = '<div style="color:#9ca3af;font-size:13px">연결된 입금 없음</div>';
-    totalEl.style.display = 'none';
-    return;
-  }
-  const total = links.reduce((s, l) => s + (l.amount || 0), 0);
-  list.innerHTML = links.map(l => `
-    <div class="txn-link-row">
-      <span class="txn-link-date">${(l.txn_at||'').slice(0,16)}</span>
-      <span class="txn-link-memo">${l.memo||'-'}</span>
-      <span class="txn-link-amt">${(l.amount||0).toLocaleString()}원</span>
-      <button class="txn-link-del" data-link-id="${l.id}">✕</button>
-    </div>`).join('');
-  list.querySelectorAll('.txn-link-del').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('연결을 삭제할까요?')) return;
-      await fetch(`${API}/api/txn-links/${btn.dataset.linkId}`, { method: 'DELETE' });
-      showToast('연결 삭제됨');
-      loadTxnLinks();
-      loadOrder();
-    });
-  });
   const bill = order?.total_amount || 0;
-  const remaining = bill - total;
+  const paid = transferTotal + cashTotal;
+  const remaining = bill - paid;
+  if (!transferTotal && !cashTotal) { totalEl.style.display = 'none'; return; }
   totalEl.style.display = '';
   totalEl.style.background = remaining <= 0 ? '#dcfce7' : '#fef9c3';
   totalEl.style.color = remaining <= 0 ? '#15803d' : '#854d0e';
@@ -469,14 +487,99 @@ async function loadTxnLinks() {
     <div style="display:flex;justify-content:space-between;margin-bottom:3px">
       <span>청구금액</span><span>${bill.toLocaleString()}원</span>
     </div>
-    <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-      <span>입금합계</span><span>${total.toLocaleString()}원</span>
-    </div>
+    ${transferTotal ? `<div style="display:flex;justify-content:space-between;margin-bottom:3px">
+      <span>이체입금</span><span>${transferTotal.toLocaleString()}원</span>
+    </div>` : ''}
+    ${cashTotal ? `<div style="display:flex;justify-content:space-between;margin-bottom:3px">
+      <span>현금입금</span><span>${cashTotal.toLocaleString()}원</span>
+    </div>` : ''}
+    ${(transferTotal && cashTotal) ? `<div style="display:flex;justify-content:space-between;margin-bottom:3px">
+      <span>입금합계</span><span>${paid.toLocaleString()}원</span>
+    </div>` : ''}
     <div style="display:flex;justify-content:space-between;font-size:14px">
       <span>${remaining <= 0 ? '✅ 완납' : '미수'}</span>
       <span style="font-weight:800">${remaining <= 0 ? '0원' : remaining.toLocaleString()+'원'}</span>
     </div>`;
 }
+
+async function loadTxnLinks() {
+  const [linksRes, cashRes] = await Promise.all([
+    fetch(`${API}/api/orders/${orderId}/txn-links`),
+    fetch(`${API}/api/orders/${orderId}/cash-payments`)
+  ]);
+  const links = await linksRes.json();
+  const cashes = await cashRes.json();
+
+  const list = document.getElementById('txn-links-list');
+  if (!links.length) {
+    list.innerHTML = '<div style="color:#9ca3af;font-size:13px">연결된 입금 없음</div>';
+  } else {
+    const transferTotal = links.reduce((s, l) => s + (l.amount || 0), 0);
+    list.innerHTML = links.map(l => `
+      <div class="txn-link-row">
+        <span class="txn-link-date">${(l.txn_at||'').slice(0,16)}</span>
+        <span class="txn-link-memo">${l.memo||'-'}</span>
+        <span class="txn-link-amt">${(l.amount||0).toLocaleString()}원</span>
+        <button class="txn-link-del" data-link-id="${l.id}">✕</button>
+      </div>`).join('');
+    list.querySelectorAll('.txn-link-del').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('연결을 삭제할까요?')) return;
+        await fetch(`${API}/api/txn-links/${btn.dataset.linkId}`, { method: 'DELETE' });
+        showToast('연결 삭제됨');
+        loadTxnLinks();
+        loadOrder();
+      });
+    });
+  }
+
+  const transferTotal = links.reduce((s, l) => s + (l.amount || 0), 0);
+  const cashTotal = cashes.reduce((s, c) => s + (c.amount || 0), 0);
+  renderPaymentSummary(transferTotal, cashTotal);
+}
+
+async function loadCashPayments() {
+  const res = await fetch(`${API}/api/orders/${orderId}/cash-payments`);
+  const cashes = await res.json();
+  const list = document.getElementById('cash-list');
+  if (!cashes.length) {
+    list.innerHTML = '<div style="color:#9ca3af;font-size:13px">현금 입금 없음</div>';
+  } else {
+    list.innerHTML = cashes.map(c => `
+      <div class="txn-link-row">
+        <span class="txn-link-date">${(c.paid_at||'').slice(0,10)}</span>
+        <span class="txn-link-memo">${c.memo||'-'}</span>
+        <span class="txn-link-amt">${(c.amount||0).toLocaleString()}원</span>
+        <button class="txn-link-del" data-cash-id="${c.id}">✕</button>
+      </div>`).join('');
+    list.querySelectorAll('.txn-link-del').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('현금 입금을 삭제할까요?')) return;
+        await fetch(`${API}/api/cash-payments/${btn.dataset.cashId}`, { method: 'DELETE' });
+        showToast('삭제됨');
+        loadTxnLinks();
+        loadCashPayments();
+      });
+    });
+  }
+}
+
+document.getElementById('btn-cash-add').addEventListener('click', async () => {
+  const amount = parseInt(document.getElementById('cash-amount').value) || 0;
+  if (!amount) { showToast('금액을 입력하세요'); return; }
+  const paid_at = document.getElementById('cash-date').value;
+  const memo = document.getElementById('cash-memo').value.trim();
+  await fetch(`${API}/api/orders/${orderId}/cash-payments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount, paid_at, memo })
+  });
+  document.getElementById('cash-amount').value = '';
+  document.getElementById('cash-memo').value = '';
+  showToast('✅ 현금 입금 등록됨');
+  loadTxnLinks();
+  loadCashPayments();
+});
 
 async function searchTxns() {
   const q = document.getElementById('txn-search-input').value.trim();

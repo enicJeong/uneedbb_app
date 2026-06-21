@@ -350,7 +350,8 @@ export default {
                 r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
                 a.address,
                 (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS total_qty,
-                (SELECT GROUP_CONCAT(product || '*' || qty, ', ') FROM order_items WHERE order_id = o.id) AS items_summary
+                (SELECT GROUP_CONCAT(product || '*' || qty, ', ') FROM order_items WHERE order_id = o.id) AS items_summary,
+                (SELECT COALESCE(SUM(amount),0) FROM cash_payments WHERE order_id = o.id) AS cash_amount
               FROM orders o
               LEFT JOIN customers c ON o.orderer_id  = c.id
               LEFT JOIN customers r ON o.recipient_id = r.id
@@ -364,7 +365,8 @@ export default {
                 r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
                 a.address,
                 (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS total_qty,
-                (SELECT GROUP_CONCAT(product || '*' || qty, ', ') FROM order_items WHERE order_id = o.id) AS items_summary
+                (SELECT GROUP_CONCAT(product || '*' || qty, ', ') FROM order_items WHERE order_id = o.id) AS items_summary,
+                (SELECT COALESCE(SUM(amount),0) FROM cash_payments WHERE order_id = o.id) AS cash_amount
               FROM orders o
               LEFT JOIN customers c ON o.orderer_id  = c.id
               LEFT JOIN customers r ON o.recipient_id = r.id
@@ -874,6 +876,30 @@ export default {
             }
           }
         }
+        return json({ ok: true });
+      }
+
+      // ── 현금 결제 ──────────────────────────────────────
+      if (path.match(/^\/api\/orders\/\d+\/cash-payments$/) && method === 'GET') {
+        const id = path.split('/')[3];
+        const rows = await env.DB.prepare(
+          `SELECT * FROM cash_payments WHERE order_id=? ORDER BY paid_at DESC`
+        ).bind(id).all();
+        return json(rows.results);
+      }
+
+      if (path.match(/^\/api\/orders\/\d+\/cash-payments$/) && method === 'POST') {
+        const id = path.split('/')[3];
+        const { amount, paid_at, memo } = await request.json();
+        const r = await env.DB.prepare(
+          `INSERT INTO cash_payments (order_id, amount, paid_at, memo) VALUES (?, ?, ?, ?)`
+        ).bind(id, amount||0, paid_at||'', memo||'').run();
+        return json({ ok: true, id: r.meta.last_row_id });
+      }
+
+      if (path.match(/^\/api\/cash-payments\/\d+$/) && method === 'DELETE') {
+        const id = path.split('/')[3];
+        await env.DB.prepare(`DELETE FROM cash_payments WHERE id=?`).bind(id).run();
         return json({ ok: true });
       }
 
