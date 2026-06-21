@@ -533,7 +533,7 @@ async function searchTxns() {
     item.addEventListener('click', () => {
       selectedTxn = { id: +item.dataset.id, deposit: +item.dataset.deposit, memo: item.dataset.memo };
       document.getElementById('txn-selected-label').textContent = `${selectedTxn.memo} · ${selectedTxn.deposit.toLocaleString()}원`;
-      document.getElementById('txn-link-amount').value = selectedTxn.deposit;
+      document.getElementById('txn-link-amount').value = order?.total_amount || selectedTxn.deposit;
       document.getElementById('txn-link-form').style.display = 'flex';
       result.style.display = 'none';
     });
@@ -547,16 +547,46 @@ document.getElementById('btn-txn-link-confirm').addEventListener('click', async 
   if (!selectedTxn) return;
   const amount = parseInt(document.getElementById('txn-link-amount').value) || 0;
   if (!amount) { showToast('금액을 입력하세요'); return; }
+
+  // 1. 입금-주문 연결
   await fetch(`${API}/api/transactions/${selectedTxn.id}/links`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ links: [{ order_id: orderId, amount }] })
   });
-  showToast('✅ 입금 연결됨');
+
+  // 2. 주문 수금완료 처리
+  await fetch(`${API}/api/orders/${orderId}/status`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: '수금완료' })
+  });
+
+  // 3. 잔액 확인 → 0원이면 트랜잭션 자동 완료
+  const txnRes = await fetch(`${API}/api/transactions`);
+  const txns = await txnRes.json();
+  const txn = txns.find(t => t.id === selectedTxn.id);
+  if (txn) {
+    const remain = txn.deposit - (txn.linked_amount || 0);
+    if (remain <= 0) {
+      await fetch(`${API}/api/transactions/${selectedTxn.id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txn_status: '완료' })
+      });
+      showToast('✅ 입금 연결 완료 — 잔액 0원, 트랜잭션 완료 처리됨');
+    } else {
+      showToast(`✅ 입금 연결됨 — 잔액 ${remain.toLocaleString()}원 남음`);
+    }
+  } else {
+    showToast('✅ 입금 연결됨');
+  }
+
   document.getElementById('txn-link-form').style.display = 'none';
   document.getElementById('txn-search-input').value = '';
   selectedTxn = null;
   loadTxnLinks();
+  loadOrder();
 });
 
 document.getElementById('btn-txn-link-cancel').addEventListener('click', () => {
