@@ -162,6 +162,7 @@
     <button data-filter="확인중">확인중</button>
     <button data-filter="완료">완료</button>
     <button data-filter="기타">기타</button>
+    <button data-filter="현금">현금</button>
   </div>
 
   <table class="txn-table" id="txn-table">
@@ -273,7 +274,9 @@ function render() {
   const dateFrom = document.getElementById('date-from').value;
   const dateTo   = document.getElementById('date-to').value;
 
-  let visible = statusFilter ? allTxns.filter(t => calcStatus(t) === statusFilter) : allTxns;
+  let visible = statusFilter === '현금'
+    ? allTxns.filter(t => t.branch === '현금')
+    : statusFilter ? allTxns.filter(t => calcStatus(t) === statusFilter) : allTxns;
   if (searchQ) visible = visible.filter(t =>
     (t.memo||'').toLowerCase().includes(searchQ) ||
     (t.description||'').toLowerCase().includes(searchQ) ||
