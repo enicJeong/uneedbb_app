@@ -120,15 +120,8 @@
     <button class="btn btn-outline" id="btn-refresh">↺ 새로고침</button>
   </div>
 
-  <div class="paste-area card">
-    <div style="font-size:12px;color:#6b7280;margin-bottom:6px;font-weight:600">📋 엑셀 내용 붙여넣기 (헤더 포함)</div>
-    <textarea id="paste-input" placeholder="거래일시&#9;구분&#9;금액&#9;거래후잔액&#9;거래내용&#9;거래기록사항&#9;거래점&#9;이체메모&#10;2026-06-21&#10;08:22:44&#9;입금&#9;120,000원&#9;92,406,545원&#9;폰국민은행&#9;이정란&#9;국민&#10;0042505"></textarea>
-    <div class="paste-btns">
-      <button class="btn btn-primary" id="btn-parse">파싱 미리보기</button>
-      <button class="btn btn-success" id="btn-save" style="display:none">저장</button>
-      <button class="btn btn-outline" id="btn-cancel-parse" style="display:none">취소</button>
-    </div>
-    <div id="parse-preview" style="display:none;margin-top:10px"></div>
+  <div style="font-size:12px;color:#6b7280;margin-bottom:12px">
+    입출금 데이터 입력은 <a href="order-bulk.html#txn" style="color:#2563eb;font-weight:700">일괄 작업 → 입출금 탭</a>에서 하세요.
   </div>
 
   <div class="txn-list" id="txn-list"></div>
@@ -166,7 +159,6 @@
 <script>
 const API = BB_CONFIG.API;
 let allTxns = [];
-let parsedRows = [];
 let currentTxn = null;
 let selectedOrders = {}; // {order_id: {order, amount}}
 
@@ -299,129 +291,6 @@ function render() {
 }
 
 // ── 엑셀 파싱 ──────────────────────────────────────────
-function parseNum(s) {
-  return parseInt((s || '').replace(/[,원]/g, '').trim()) || 0;
-}
-
-function parseExcel(raw) {
-  const lines = raw.split('\n').map(l => l.trimEnd());
-
-  // 헤더 감지 (거래일시로 시작하면 건너뜀)
-  const start = lines[0].startsWith('거래일시') || lines[0].startsWith('순번') ? 1 : 0;
-
-  // 구형 포맷 감지: 첫 데이터 줄이 숫자로 시작 (순번)
-  const firstData = lines[start] || '';
-  const isOldFormat = /^\d+\t/.test(firstData);
-
-  if (isOldFormat) {
-    return lines.slice(start).filter(l => l.trim() && /^\d+\t/.test(l)).map(l => {
-      const c = l.split('\t');
-      return {
-        seq_no:      parseInt(c[0]) || 0,
-        txn_at:      (c[1]||'').trim().replace(/\//g, '-'),
-        withdraw:    parseNum(c[2]),
-        deposit:     parseNum(c[3]),
-        balance:     parseNum(c[4]),
-        description: (c[5]||'').trim(),
-        memo:        (c[6]||'').trim(),
-        branch:      (c[7]||'').trim(),
-      };
-    });
-  }
-
-  // 신형 포맷: 날짜줄 + 데이터줄 + 이체메모줄
-  const rows = [];
-  let i = start;
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    // 날짜줄: YYYY-MM-DD
-    if (/^\d{4}-\d{2}-\d{2}$/.test(line)) {
-      const date = line;
-      i++;
-      // 다음 줄: HH:MM:SS\t구분\t금액\t잔액\t거래내용\t거래기록사항\t거래점
-      if (i < lines.length) {
-        const cols = lines[i].split('\t');
-        const time = (cols[0]||'').trim();
-        const txn_at = `${date} ${time}`;
-        const 구분 = (cols[1]||'').trim();
-        const amt  = parseNum(cols[2]);
-        rows.push({
-          seq_no:      0,
-          txn_at,
-          withdraw:    구분 === '출금' ? amt : 0,
-          deposit:     구분 === '입금' ? amt : 0,
-          balance:     parseNum(cols[3]),
-          description: (cols[4]||'').trim(),
-          memo:        (cols[5]||'').trim(),
-          branch:      (cols[6]||'').trim(),
-        });
-        i++;
-        // 이체메모 줄 (숫자만 있는 줄) — 스킵
-        if (i < lines.length && /^\d+\s*$/.test(lines[i].split('\t')[0])) i++;
-      }
-    } else {
-      i++;
-    }
-  }
-  return rows;
-}
-
-document.getElementById('btn-parse').addEventListener('click', () => {
-  const raw = document.getElementById('paste-input').value.trim();
-  if (!raw) { showToast('내용을 붙여넣으세요'); return; }
-  parsedRows = parseExcel(raw);
-
-  if (!parsedRows.length) { showToast('파싱 실패 — 형식을 확인하세요'); return; }
-
-  const preview = document.getElementById('parse-preview');
-  preview.style.display = '';
-  preview.innerHTML = `
-    <div style="font-size:12px;color:#6b7280;margin-bottom:6px">${parsedRows.length}건 파싱됨</div>
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <tr style="background:#f9fafb">
-        <th style="padding:4px 6px;text-align:left">일시</th>
-        <th style="padding:4px 6px;text-align:left">기록사항</th>
-        <th style="padding:4px 6px;text-align:right">출금</th>
-        <th style="padding:4px 6px;text-align:right">입금</th>
-        <th style="padding:4px 6px;text-align:right">잔액</th>
-      </tr>
-      ${parsedRows.map(r => `
-        <tr style="border-top:1px solid #f3f4f6">
-          <td style="padding:4px 6px">${r.txn_at.slice(0,16)}</td>
-          <td style="padding:4px 6px">${r.memo}</td>
-          <td style="padding:4px 6px;text-align:right;color:#dc2626">${r.withdraw ? r.withdraw.toLocaleString() : ''}</td>
-          <td style="padding:4px 6px;text-align:right;color:#15803d">${r.deposit ? r.deposit.toLocaleString() : ''}</td>
-          <td style="padding:4px 6px;text-align:right;color:#6b7280">${r.balance.toLocaleString()}</td>
-        </tr>`).join('')}
-    </table>`;
-  document.getElementById('btn-save').style.display = '';
-  document.getElementById('btn-cancel-parse').style.display = '';
-});
-
-document.getElementById('btn-save').addEventListener('click', async () => {
-  if (!parsedRows.length) return;
-  const res = await fetch(`${API}/api/transactions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(parsedRows)
-  });
-  const data = await res.json();
-  showToast(`✅ ${data.inserted}건 저장됨`);
-  document.getElementById('paste-input').value = '';
-  document.getElementById('parse-preview').style.display = 'none';
-  document.getElementById('btn-save').style.display = 'none';
-  document.getElementById('btn-cancel-parse').style.display = 'none';
-  parsedRows = [];
-  await load();
-});
-
-document.getElementById('btn-cancel-parse').addEventListener('click', () => {
-  parsedRows = [];
-  document.getElementById('parse-preview').style.display = 'none';
-  document.getElementById('btn-save').style.display = 'none';
-  document.getElementById('btn-cancel-parse').style.display = 'none';
-});
-
 // ── 주문 연결 모달 ─────────────────────────────────────
 function openLinkModal(txn) {
   currentTxn = txn;

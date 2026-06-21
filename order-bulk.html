@@ -69,6 +69,7 @@
   <div class="tab-row">
     <button class="tab-btn active" data-tab="tracking">송장 입력</button>
     <button class="tab-btn" data-tab="bulk">주소 일괄 입력</button>
+    <button class="tab-btn" data-tab="txn">입출금</button>
   </div>
 
   <!-- ══════════════════════════════════════════════════ -->
@@ -156,6 +157,20 @@
     </div>
     <div id="result-wrap" style="display:none"></div>
   </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- 탭 3: 입출금 파싱                                   -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <div id="tab-txn" style="display:none">
+    <p class="desc">은행 거래내역을 붙여넣으면 파싱 후 저장합니다. 동일 거래일시는 중복 저장되지 않습니다.</p>
+    <textarea id="txn-paste" rows="8" placeholder="거래일시&#9;구분&#9;금액&#9;거래후잔액&#9;거래내용&#9;거래기록사항&#9;거래점&#9;이체메모&#10;2026-06-21&#10;08:22:44&#9;입금&#9;120,000원&#9;92,406,545원&#9;폰국민은행&#9;이정란&#9;국민&#10;0042505"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-primary" id="txn-btn-parse">파싱 미리보기</button>
+      <button class="btn btn-success" id="txn-btn-save" style="display:none">저장</button>
+      <button class="btn btn-outline" id="txn-btn-cancel" style="display:none">취소</button>
+    </div>
+    <div id="txn-preview" style="display:none;margin-top:12px"></div>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -175,6 +190,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     document.getElementById('tab-tracking').style.display = btn.dataset.tab === 'tracking' ? '' : 'none';
     document.getElementById('tab-bulk').style.display     = btn.dataset.tab === 'bulk'     ? '' : 'none';
+    document.getElementById('tab-txn').style.display      = btn.dataset.tab === 'txn'      ? '' : 'none';
     if (btn.dataset.tab === 'tracking') loadTrackingOrders();
   });
 });
@@ -609,6 +625,101 @@ document.getElementById('btn-bulk-import').addEventListener('click', async () =>
   btn.textContent = 'DB에 저장';
   if (ok > 0 && !failed.length) setTimeout(() => { window.location.href = 'order-list.html'; }, 1500);
 });
+
+// ── 입출금 파싱 ───────────────────────────────────────
+(function () {
+  let parsedTxns = [];
+
+  function parseNum(s) { return parseInt((s||'').replace(/[,원]/g,'').trim())||0; }
+
+  function parseTxn(raw) {
+    const lines = raw.split('\n').map(l => l.trimEnd());
+    const start = /^거래일시|^순번/.test(lines[0]) ? 1 : 0;
+    const firstData = lines[start] || '';
+    const isOld = /^\d+\t/.test(firstData);
+    if (isOld) {
+      return lines.slice(start).filter(l => /^\d+\t/.test(l)).map(l => {
+        const c = l.split('\t');
+        return { seq_no: parseInt(c[0])||0, txn_at: (c[1]||'').trim().replace(/\//g,'-'),
+          withdraw: parseNum(c[2]), deposit: parseNum(c[3]), balance: parseNum(c[4]),
+          description: (c[5]||'').trim(), memo: (c[6]||'').trim(), branch: (c[7]||'').trim() };
+      });
+    }
+    const rows = []; let i = start;
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(line)) {
+        const date = line; i++;
+        if (i < lines.length) {
+          const cols = lines[i].split('\t');
+          const time = (cols[0]||'').trim();
+          const 구분 = (cols[1]||'').trim();
+          const amt  = parseNum(cols[2]);
+          rows.push({ seq_no:0, txn_at:`${date} ${time}`,
+            withdraw: 구분==='출금'?amt:0, deposit: 구분==='입금'?amt:0,
+            balance: parseNum(cols[3]), description:(cols[4]||'').trim(),
+            memo:(cols[5]||'').trim(), branch:(cols[6]||'').trim() });
+          i++;
+          if (i < lines.length && /^\d+\s*$/.test(lines[i].split('\t')[0])) i++;
+        }
+      } else { i++; }
+    }
+    return rows;
+  }
+
+  document.getElementById('txn-btn-parse').addEventListener('click', () => {
+    const raw = document.getElementById('txn-paste').value.trim();
+    if (!raw) { showToast('내용을 붙여넣으세요'); return; }
+    parsedTxns = parseTxn(raw);
+    if (!parsedTxns.length) { showToast('파싱 실패 — 형식을 확인하세요'); return; }
+    const preview = document.getElementById('txn-preview');
+    preview.style.display = '';
+    preview.innerHTML = `
+      <div style="font-size:12px;color:#6b7280;margin-bottom:6px">${parsedTxns.length}건 파싱됨</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr style="background:#f9fafb">
+          <th style="padding:4px 6px;text-align:left">일시</th>
+          <th style="padding:4px 6px;text-align:left">기록사항</th>
+          <th style="padding:4px 6px;text-align:right">출금</th>
+          <th style="padding:4px 6px;text-align:right">입금</th>
+          <th style="padding:4px 6px;text-align:right">잔액</th>
+        </tr>
+        ${parsedTxns.map(r => `
+          <tr style="border-top:1px solid #f3f4f6">
+            <td style="padding:4px 6px">${r.txn_at.slice(0,16)}</td>
+            <td style="padding:4px 6px">${r.memo}</td>
+            <td style="padding:4px 6px;text-align:right;color:#dc2626">${r.withdraw?r.withdraw.toLocaleString():''}</td>
+            <td style="padding:4px 6px;text-align:right;color:#15803d">${r.deposit?r.deposit.toLocaleString():''}</td>
+            <td style="padding:4px 6px;text-align:right;color:#6b7280">${r.balance.toLocaleString()}</td>
+          </tr>`).join('')}
+      </table>`;
+    document.getElementById('txn-btn-save').style.display = '';
+    document.getElementById('txn-btn-cancel').style.display = '';
+  });
+
+  document.getElementById('txn-btn-save').addEventListener('click', async () => {
+    if (!parsedTxns.length) return;
+    const res = await fetch(`${API}/api/transactions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(parsedTxns)
+    });
+    const data = await res.json();
+    showToast(`✅ ${data.inserted}건 저장 · ${data.skipped||0}건 중복 건너뜀`);
+    document.getElementById('txn-paste').value = '';
+    document.getElementById('txn-preview').style.display = 'none';
+    document.getElementById('txn-btn-save').style.display = 'none';
+    document.getElementById('txn-btn-cancel').style.display = 'none';
+    parsedTxns = [];
+  });
+
+  document.getElementById('txn-btn-cancel').addEventListener('click', () => {
+    parsedTxns = [];
+    document.getElementById('txn-preview').style.display = 'none';
+    document.getElementById('txn-btn-save').style.display = 'none';
+    document.getElementById('txn-btn-cancel').style.display = 'none';
+  });
+})();
 
 // ── 템플릿 다운로드 ───────────────────────────────────
 document.getElementById('btn-template-dl').addEventListener('click', () => {

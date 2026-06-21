@@ -709,15 +709,19 @@ export default {
 
       if (path === '/api/transactions' && method === 'POST') {
         const rows = await request.json();
-        let inserted = 0;
+        let inserted = 0, skipped = 0;
         for (const r of rows) {
+          const existing = await env.DB.prepare(
+            `SELECT id FROM transactions WHERE txn_at = ?`
+          ).bind(r.txn_at).first();
+          if (existing) { skipped++; continue; }
           await env.DB.prepare(`
             INSERT INTO transactions (seq_no, txn_at, withdraw, deposit, balance, description, memo, branch)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           `).bind(r.seq_no, r.txn_at, r.withdraw||0, r.deposit||0, r.balance||0, r.description||'', r.memo||'', r.branch||'').run();
           inserted++;
         }
-        return json({ inserted });
+        return json({ inserted, skipped });
       }
 
       if (path.match(/^\/api\/transactions\/\d+\/memo$/) && method === 'PUT') {
