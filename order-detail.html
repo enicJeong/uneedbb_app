@@ -489,12 +489,18 @@ async function searchTxns() {
     result.innerHTML = '<div style="padding:10px;font-size:13px;color:#9ca3af">결과 없음</div>';
     return;
   }
-  result.innerHTML = txns.slice(0, 20).map(t => `
+  result.innerHTML = txns.slice(0, 20).map(t => {
+    const remain = (t.deposit||0) - (t.linked_amount||0);
+    return `
     <div class="txn-result-item" data-id="${t.id}" data-deposit="${t.deposit}" data-memo="${t.memo||''}">
       <span class="txn-result-date">${(t.txn_at||'').slice(0,10)}</span>
       <span class="txn-result-memo">${t.memo||'-'}</span>
-      <span class="txn-result-amt">${(t.deposit||0).toLocaleString()}원</span>
-    </div>`).join('');
+      <span class="txn-result-amt">
+        <span style="color:#2563eb;font-weight:800">잔액 ${remain.toLocaleString()}원</span>
+        <span style="color:#9ca3af;font-size:11px;margin-left:4px">/ ${(t.deposit||0).toLocaleString()}원</span>
+      </span>
+    </div>`;
+  }).join('');
   result.querySelectorAll('.txn-result-item').forEach(item => {
     item.addEventListener('click', () => {
       selectedTxn = { id: +item.dataset.id, deposit: +item.dataset.deposit, memo: item.dataset.memo };
