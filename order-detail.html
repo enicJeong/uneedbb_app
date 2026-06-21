@@ -325,6 +325,14 @@ function render() {
       (order.recipient_memo ? `<div style="font-size:11px;color:#f59e0b;font-weight:600;margin-top:2px">📝 ${order.recipient_memo}</div>` : '')
     : '주문자와 동일';
   document.getElementById('d-delivery').textContent   = order.delivery_type;
+
+  // 택배가 아니면 SMS 토글 숨김 + 강제 OFF
+  const isCourier = order.delivery_type === '택배';
+  document.getElementById('sms-toggle-wrap').style.display = isCourier ? '' : 'none';
+  if (!isCourier) {
+    document.getElementById('sms-toggle').checked = false;
+    applySmsToggle();
+  }
   document.getElementById('d-address').textContent    = order.address || '-';
   document.getElementById('d-priority').textContent   = 'P' + order.priority;
   document.getElementById('d-printed').innerHTML      = order.printed_at

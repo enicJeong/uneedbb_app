@@ -76,7 +76,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .badge-주문확정 { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
 .badge-주문출력 { background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
 .badge-송장출력 { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
-.badge-배송완료 { background: #f1f5f9; color: #9ca3af; border: 1px solid #e5e7eb; }
+.badge-배송완료 { background: #dbeafe; color: #1d4ed8; border: 1px solid #93c5fd; }
 .badge-수금완료 { background: #f1f5f9; color: #94a3b8; border: 1px solid #cbd5e1; }
 
 /* 수금 */
@@ -208,7 +208,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .filter-btn[data-filter="주문확정"].active { background: #854d0e; border-color: #854d0e; }
 .filter-btn[data-filter="주문출력"].active { background: #16a34a; border-color: #16a34a; }
 .filter-btn[data-filter="송장출력"].active { background: #c2410c; border-color: #c2410c; }
-.filter-btn[data-filter="배송완료"].active { background: #64748b; border-color: #64748b; }
+.filter-btn[data-filter="배송완료"].active { background: #1d4ed8; border-color: #1d4ed8; }
 .filter-btn[data-filter="수금완료"].active { background: #64748b; border-color: #64748b; }
 
 /* ── 요약 카드 ─────────────────────────────────────────── */
@@ -224,7 +224,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .order-card.status-주문확정 { border-left: 4px solid #fde047; background: #fef9c3; }
 .order-card.status-주문출력 { border-left: 4px solid #16a34a; background: #dcfce7; }
 .order-card.status-송장출력 { border-left: 4px solid #f97316; background: #ffedd5; }
-.order-card.status-배송완료 { border-left: 4px solid #cbd5e1; background: #f1f5f9; }
+.order-card.status-배송완료 { border-left: 4px solid #3b82f6; background: #eff6ff; }
 .order-card.status-수금완료 { border-left: 4px solid #cbd5e1; background: #f8fafc; opacity: 0.6; }
 .order-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
 .order-id  { font-size: 12px; color: #9ca3af; }
@@ -268,7 +268,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .tbl tbody tr.status-주문확정 { background: #fef9c3; }
 .tbl tbody tr.status-주문출력 { background: #dcfce7; }
 .tbl tbody tr.status-송장출력 { background: #ffedd5; }
-.tbl tbody tr.status-배송완료 { background: #f1f5f9; color: #9ca3af; }
+.tbl tbody tr.status-배송완료 { background: #eff6ff; }
 .tbl tbody tr.status-수금완료 { background: #f8fafc; color: #94a3b8; opacity: 0.6; }
 .tbl td { padding: 9px 12px; vertical-align: middle; }
 .tbl td.order-no { font-weight: 700; color: #1d4ed8; white-space: nowrap; }
