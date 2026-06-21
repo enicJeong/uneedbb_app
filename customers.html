@@ -134,38 +134,42 @@ let isNew = false;
 let syncedFilter = ''; // '' | '1' | '0'
 
 // ── Google 연결 ────────────────────────────────────────
+function setGoogleConnected(token) {
+  accessToken = token;
+  localStorage.setItem('gg_token', token);
+  document.getElementById('google-status').textContent = '✅ Google 연결됨';
+  document.getElementById('google-status').classList.add('connected');
+  document.getElementById('btn-sync-google').style.display = '';
+  document.getElementById('btn-disconnect-google').style.display = '';
+}
+
 window.onload = () => {
   // 리다이렉트 후 토큰 파싱
   const hash = new URLSearchParams(location.hash.slice(1));
   const token = hash.get('access_token');
   if (token) {
-    accessToken = token;
+    setGoogleConnected(token);
     history.replaceState(null, '', location.pathname);
-    document.getElementById('google-status').textContent = '✅ Google 연결됨';
-    document.getElementById('google-status').classList.add('connected');
-    document.getElementById('btn-sync-google').style.display = '';
-    document.getElementById('btn-disconnect-google').style.display = '';
+  } else {
+    // localStorage에서 복원
+    const saved = localStorage.getItem('gg_token');
+    if (saved) setGoogleConnected(saved);
   }
 
   const check = setInterval(() => {
     if (typeof google === 'undefined' || !google.accounts) return;
     clearInterval(check);
     tokenClient = google.accounts.oauth2.initTokenClient({
-  client_id: GAPI_CLIENT_ID,
-  scope: SCOPES,
-  prompt: '',
-  callback: (resp) => {
-    if (resp.error) return;
-    accessToken = resp.access_token;
-    document.getElementById('google-status').textContent = '✅ Google 연결됨';
-    document.getElementById('google-status').classList.add('connected');
-    document.getElementById('btn-sync-google').style.display = '';
-    document.getElementById('btn-disconnect-google').style.display = '';
-  }
-});
+      client_id: GAPI_CLIENT_ID,
+      scope: SCOPES,
+      prompt: '',
+      callback: (resp) => {
+        if (resp.error) return;
+        setGoogleConnected(resp.access_token);
+      }
+    });
   }, 100);
 
-  // 자동 로드 안함 — 검색 또는 필터 선택 시 로드
   loadCounts();
 };
 
@@ -203,6 +207,7 @@ document.getElementById('btn-sync-google').addEventListener('click', async () =>
 
 document.getElementById('btn-disconnect-google').addEventListener('click', () => {
   accessToken = null;
+  localStorage.removeItem('gg_token');
   document.getElementById('google-status').textContent = 'Google 미연결';
   document.getElementById('google-status').classList.remove('connected');
   document.getElementById('btn-sync-google').style.display = 'none';
