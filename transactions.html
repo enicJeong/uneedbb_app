@@ -290,6 +290,7 @@ function render() {
         </div>
         ${isDeposit ? `<div class="sub-actions">
           <button class="btn btn-primary btn-link-order" data-txn-id="${t.id}" style="font-size:13px;padding:6px 14px">+ 주문 연결</button>
+          ${status !== '완료' ? `<button class="btn btn-outline btn-force-complete" data-txn-id="${t.id}" style="font-size:13px;padding:6px 14px;color:#15803d;border-color:#86efac">✅ 완료 처리</button>` : ''}
           <button class="btn btn-outline btn-del-txn" data-txn-id="${t.id}" style="font-size:13px;padding:6px 14px;color:#dc2626;border-color:#fca5a5">삭제</button>
         </div>` : `<div class="sub-actions">
           <button class="btn btn-outline btn-del-txn" data-txn-id="${t.id}" style="font-size:13px;padding:6px 14px;color:#dc2626;border-color:#fca5a5">삭제</button>
@@ -323,6 +324,27 @@ function render() {
       });
       showToast('메모 저장됨');
     });
+
+    const btnForceComplete = subTr.querySelector('.btn-force-complete');
+    if (btnForceComplete) {
+      btnForceComplete.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const memo = prompt('완료 처리 사유를 입력하세요 (선택사항):');
+        if (memo === null) return;
+        await fetch(`${API}/api/transactions/${e.target.dataset.txnId}/status`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ txn_status: '완료' })
+        });
+        if (memo) {
+          await fetch(`${API}/api/transactions/${e.target.dataset.txnId}/memo`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ admin_memo: memo })
+          });
+        }
+        showToast('✅ 완료 처리됨');
+        await load();
+      });
+    }
 
     subTr.querySelector('.btn-del-txn').addEventListener('click', async (e) => {
       e.stopPropagation();
