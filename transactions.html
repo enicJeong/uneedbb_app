@@ -107,7 +107,9 @@
   .order-item:hover { background: #f9fafb; }
   .order-item input[type=checkbox] { accent-color: #2563eb; }
   .order-no-label { font-weight: 700; color: #1d4ed8; min-width: 100px; }
-  .order-name-label { color: #6b7280; flex: 1; }
+  .order-name-label { color: #374151; font-weight: 600; }
+  .order-recipient-label { color: #9ca3af; font-size: 11px; }
+  .order-names-wrap { flex: 1; display: flex; align-items: center; gap: 4px; }
   .order-amt-label { color: #374151; font-weight: 600; white-space: nowrap; }
 
   .selected-orders { margin-bottom: 12px; }
@@ -399,7 +401,10 @@ async function searchOrders() {
     <div class="order-item" data-id="${o.id}">
       <input type="checkbox" ${selectedOrders[o.id] ? 'checked' : ''}>
       <span class="order-no-label">${o.order_no || '#'+o.id}</span>
-      <span class="order-name-label">${o.orderer_name || ''}</span>
+      <span class="order-names-wrap">
+        <span class="order-name-label">${o.orderer_name || ''}</span>
+        ${o.recipient_name ? `<span class="order-recipient-label">› ${o.recipient_name}</span>` : ''}
+      </span>
       <span class="order-amt-label">${(o.total_amount||0).toLocaleString()}원</span>
     </div>`).join('');
 
