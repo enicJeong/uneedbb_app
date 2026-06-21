@@ -457,15 +457,25 @@ async function loadTxnLinks() {
       await fetch(`${API}/api/txn-links/${btn.dataset.linkId}`, { method: 'DELETE' });
       showToast('연결 삭제됨');
       loadTxnLinks();
+      loadOrder();
     });
   });
-  const remaining = (order?.total_amount || 0) - total;
+  const bill = order?.total_amount || 0;
+  const remaining = bill - total;
   totalEl.style.display = '';
   totalEl.style.background = remaining <= 0 ? '#dcfce7' : '#fef9c3';
   totalEl.style.color = remaining <= 0 ? '#15803d' : '#854d0e';
-  totalEl.textContent = remaining <= 0
-    ? `✅ 수금 완료 (${total.toLocaleString()}원)`
-    : `입금 합계 ${total.toLocaleString()}원 · 미수 ${remaining.toLocaleString()}원`;
+  totalEl.innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+      <span>청구금액</span><span>${bill.toLocaleString()}원</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+      <span>입금합계</span><span>${total.toLocaleString()}원</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:14px">
+      <span>${remaining <= 0 ? '✅ 완납' : '미수'}</span>
+      <span style="font-weight:800">${remaining <= 0 ? '0원' : remaining.toLocaleString()+'원'}</span>
+    </div>`;
 }
 
 async function searchTxns() {
