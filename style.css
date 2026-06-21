@@ -77,7 +77,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .badge-주문출력 { background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
 .badge-송장출력 { background: #ffedd5; color: #c2410c; border: 1px solid #fdba74; }
 .badge-배송완료 { background: #f1f5f9; color: #9ca3af; border: 1px solid #e5e7eb; }
-.badge-수금완료 { background: #1e293b; color: #f1f5f9; border: 1px solid #334155; }
+.badge-수금완료 { background: #f1f5f9; color: #94a3b8; border: 1px solid #cbd5e1; }
 
 /* 수금 */
 .badge-미수     { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
@@ -204,12 +204,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
   background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; color: #374151;
 }
 .filter-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
-.filter-btn[data-filter="주문입력"].active { background: #475569; border-color: #475569; }
-.filter-btn[data-filter="주문확정"].active { background: #1d4ed8; border-color: #1d4ed8; }
-.filter-btn[data-filter="주문출력"].active { background: #b45309; border-color: #b45309; }
-.filter-btn[data-filter="송장출력"].active { background: #6d28d9; border-color: #6d28d9; }
-.filter-btn[data-filter="배송완료"].active { background: #065f46; border-color: #065f46; }
-.filter-btn[data-filter="수금완료"].active { background: #15803d; border-color: #15803d; }
+.filter-btn[data-filter="주문입력"].active { background: #374151; border-color: #374151; }
+.filter-btn[data-filter="주문확정"].active { background: #854d0e; border-color: #854d0e; }
+.filter-btn[data-filter="주문출력"].active { background: #16a34a; border-color: #16a34a; }
+.filter-btn[data-filter="송장출력"].active { background: #c2410c; border-color: #c2410c; }
+.filter-btn[data-filter="배송완료"].active { background: #64748b; border-color: #64748b; }
+.filter-btn[data-filter="수금완료"].active { background: #64748b; border-color: #64748b; }
 
 /* ── 요약 카드 ─────────────────────────────────────────── */
 .summary { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
@@ -225,7 +225,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .order-card.status-주문출력 { border-left: 4px solid #16a34a; background: #dcfce7; }
 .order-card.status-송장출력 { border-left: 4px solid #f97316; background: #ffedd5; }
 .order-card.status-배송완료 { border-left: 4px solid #cbd5e1; background: #f1f5f9; }
-.order-card.status-수금완료 { border-left: 4px solid #1e293b; background: #e2e8f0; }
+.order-card.status-수금완료 { border-left: 4px solid #cbd5e1; background: #f8fafc; opacity: 0.6; }
 .order-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
 .order-id  { font-size: 12px; color: #9ca3af; }
 .badges    { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -269,7 +269,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .tbl tbody tr.status-주문출력 { background: #dcfce7; }
 .tbl tbody tr.status-송장출력 { background: #ffedd5; }
 .tbl tbody tr.status-배송완료 { background: #f1f5f9; color: #9ca3af; }
-.tbl tbody tr.status-수금완료 { background: #e2e8f0; }
+.tbl tbody tr.status-수금완료 { background: #f8fafc; color: #94a3b8; opacity: 0.6; }
 .tbl td { padding: 9px 12px; vertical-align: middle; }
 .tbl td.order-no { font-weight: 700; color: #1d4ed8; white-space: nowrap; }
 .tbl td.names { font-weight: 600; white-space: nowrap; }
