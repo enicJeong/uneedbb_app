@@ -849,6 +849,13 @@ export default {
         return json({ ok: true });
       }
 
+      if (path.match(/^\/api\/txn-links\/\d+$/) && method === 'PUT') {
+        const id = path.split('/')[3];
+        const { amount } = await request.json();
+        await env.DB.prepare(`UPDATE txn_links SET amount=? WHERE id=?`).bind(amount, id).run();
+        return json({ ok: true });
+      }
+
       if (path.match(/^\/api\/txn-links\/\d+$/) && method === 'DELETE') {
         const id = path.split('/')[3];
         // ④ 삭제 전 order_id 조회 → 다른 링크 없으면 수금완료 복원

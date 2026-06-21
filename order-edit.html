@@ -357,6 +357,22 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
     });
     const data = await res.json();
     if (data.ok) {
+      // 입금 연결 금액 자동 업데이트
+      const newTotal = items.reduce((s, i) => s + i.unit_price * i.qty, 0) + (+document.getElementById('shipping-fee').value || 0);
+      const oldTotal = order.total_amount;
+      if (newTotal !== oldTotal) {
+        const linksRes = await fetch(`${API}/api/orders/${orderId}/txn-links`);
+        const links = await linksRes.json();
+        for (const l of links) {
+          if (l.amount === oldTotal) {
+            await fetch(`${API}/api/txn-links/${l.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ amount: newTotal })
+            });
+          }
+        }
+      }
       showToast('✅ 수정 완료');
       setTimeout(() => { window.location.href = `order-detail.html?id=${orderId}`; }, 1000);
     } else {
