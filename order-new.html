@@ -248,7 +248,7 @@ document.querySelectorAll('[data-delivery]').forEach(btn => {
 
 // ── 상품 ──────────────────────────────────────────────
 function addItem() {
-  items.push({ product: PRODUCTS[0].name, unit_price: PRODUCTS[0].price, qty: 1 });
+  items.push({ product: PRODUCTS[1].name, unit_price: PRODUCTS[1].price, qty: 1 });
   renderItems(items, () => {
     calcAmount(items);
     autoShipping(items, deliveryType);

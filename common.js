@@ -227,7 +227,7 @@ function renderItems(items, onUpdate) {
           <input type="text" class="qty-display" data-idx="${i}" value="${item.qty_expr || item.qty}" style="width:64px;text-align:center;font-weight:700;font-size:14px;border:1px solid #d1d5db;border-radius:6px;padding:3px 4px">
           <button class="qty-btn qty-plus" data-idx="${i}" style="width:28px;height:28px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;font-size:16px;cursor:pointer;line-height:1">+</button>
           <div style="display:flex;flex-direction:column;gap:3px;margin-left:4px">
-            ${[[1,2,3,4,5],[6,7,8,9,10]].map(row =>
+            ${[[1,2,3],[4,5,6],[7,8,9],[10]].map(row =>
               `<div style="display:flex;gap:3px">${row.map(n =>
                 `<button class="qty-preset" data-idx="${i}" data-val="${n}" style="padding:4px 12px;border:1px solid ${item.qty===n?'#2563eb':'#e5e7eb'};border-radius:4px;background:${item.qty===n?'#eff6ff':'#fff'};color:${item.qty===n?'#2563eb':'#6b7280'};font-size:22px;font-weight:600;cursor:pointer">${n}</button>`
               ).join('')}</div>`
