@@ -206,8 +206,14 @@ export default {
         ).bind(id).first();
         if (!customer) return err('고객 없음', 404);
         const addresses = await env.DB.prepare(
-          `SELECT * FROM addresses WHERE customer_id = ? ORDER BY is_default DESC`
-        ).bind(id).all();
+          `SELECT DISTINCT a.* FROM addresses a
+           WHERE a.customer_id = ?
+           UNION
+           SELECT DISTINCT a.* FROM addresses a
+           JOIN orders o ON o.address_id = a.id
+           WHERE (o.orderer_id = ? OR o.recipient_id = ?) AND o.status != '삭제'
+           ORDER BY is_default DESC`
+        ).bind(id, id, id).all();
         return json({ ...customer, addresses: addresses.results });
       }
 
@@ -668,6 +674,94 @@ export default {
           return json(def || null);
         }
         return json(recent);
+      }
+
+      // ── 입출금 목록 ────────────────────────────────────
+      if (path === '/api/transactions' && method === 'GET') {
+        const rows = await env.DB.prepare(`
+          SELECT t.*,
+            COALESCE((SELECT SUM(amount) FROM txn_links WHERE transaction_id = t.id), 0) AS linked_amount
+          FROM transactions t
+          ORDER BY t.txn_at DESC
+        `).all();
+        const txns = rows.results;
+        const ids = txns.map(t => t.id);
+        if (ids.length) {
+          const links = await env.DB.prepare(`
+            SELECT l.*, o.order_no,
+              c.name AS orderer_name
+            FROM txn_links l
+            JOIN orders o ON l.order_id = o.id
+            LEFT JOIN customers c ON o.orderer_id = c.id
+            WHERE l.transaction_id IN (${ids.map(() => '?').join(',')})
+          `).bind(...ids).all();
+          const linkMap = {};
+          for (const l of links.results) {
+            if (!linkMap[l.transaction_id]) linkMap[l.transaction_id] = [];
+            linkMap[l.transaction_id].push(l);
+          }
+          for (const t of txns) t.links = linkMap[t.id] || [];
+        } else {
+          for (const t of txns) t.links = [];
+        }
+        return json(txns);
+      }
+
+      if (path === '/api/transactions' && method === 'POST') {
+        const rows = await request.json();
+        let inserted = 0;
+        for (const r of rows) {
+          await env.DB.prepare(`
+            INSERT INTO transactions (seq_no, txn_at, withdraw, deposit, balance, description, memo, branch)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(r.seq_no, r.txn_at, r.withdraw||0, r.deposit||0, r.balance||0, r.description||'', r.memo||'', r.branch||'').run();
+          inserted++;
+        }
+        return json({ inserted });
+      }
+
+      if (path.match(/^\/api\/transactions\/\d+\/memo$/) && method === 'PUT') {
+        const id = path.split('/')[3];
+        const { admin_memo } = await request.json();
+        await env.DB.prepare(`UPDATE transactions SET admin_memo=? WHERE id=?`).bind(admin_memo||'', id).run();
+        return json({ ok: true });
+      }
+
+      if (path.match(/^\/api\/transactions\/\d+\/links$/) && method === 'GET') {
+        const id = path.split('/')[3];
+        const rows = await env.DB.prepare(`
+          SELECT l.*, o.order_no, o.total_amount,
+            c.name AS orderer_name
+          FROM txn_links l
+          JOIN orders o ON l.order_id = o.id
+          LEFT JOIN customers c ON o.orderer_id = c.id
+          WHERE l.transaction_id = ?
+        `).bind(id).all();
+        return json(rows.results);
+      }
+
+      if (path.match(/^\/api\/transactions\/\d+\/links$/) && method === 'POST') {
+        const id = path.split('/')[3];
+        const { links } = await request.json(); // [{order_id, amount}]
+        for (const l of links) {
+          await env.DB.prepare(`
+            INSERT INTO txn_links (transaction_id, order_id, amount) VALUES (?, ?, ?)
+          `).bind(id, l.order_id, l.amount).run();
+        }
+        return json({ ok: true });
+      }
+
+      if (path.match(/^\/api\/txn-links\/\d+$/) && method === 'DELETE') {
+        const id = path.split('/')[3];
+        await env.DB.prepare(`DELETE FROM txn_links WHERE id=?`).bind(id).run();
+        return json({ ok: true });
+      }
+
+      if (path.match(/^\/api\/transactions\/\d+$/) && method === 'DELETE') {
+        const id = path.split('/')[3];
+        await env.DB.prepare(`DELETE FROM txn_links WHERE transaction_id=?`).bind(id).run();
+        await env.DB.prepare(`DELETE FROM transactions WHERE id=?`).bind(id).run();
+        return json({ ok: true });
       }
 
       return err('Not found', 404);
