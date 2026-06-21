@@ -143,6 +143,7 @@ let recipient = null;
 let recipientSame = true;
 let deliveryType = '택배';
 let selectedAddressId = null;
+let activeAddressCustomerId = null; // 현재 주소목록이 표시 중인 고객 ID
 let priority = 3;
 let items = [];
 let orderNoValid = true;
@@ -179,6 +180,7 @@ setupSearch('orderer-input', 'orderer-search-btn', 'orderer-dropdown', 'orderer-
     selectedAddressId = null;
   });
   if (deliveryType !== '현장수령') {
+    activeAddressCustomerId = c.id;
     await loadAddresses(c.id, (id) => { selectedAddressId = id; });
   }
 });
@@ -192,10 +194,12 @@ setupSearch('recipient-input', 'recipient-search-btn', 'recipient-dropdown', 're
     document.getElementById('recipient-search-field').style.display = '';
     document.getElementById('recipient-selected').style.display = 'none';
     if (orderer && deliveryType !== '현장수령') {
+      activeAddressCustomerId = orderer.id;
       loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
     }
   });
   if (deliveryType !== '현장수령') {
+    activeAddressCustomerId = c.id;
     await loadAddresses(c.id, (id) => { selectedAddressId = id; });
   }
 });
@@ -206,6 +210,7 @@ document.getElementById('recip-same').addEventListener('click', () => {
   document.getElementById('recip-diff').classList.remove('active');
   document.getElementById('recipient-wrap').style.display = 'none';
   if (orderer && deliveryType !== '현장수령') {
+    activeAddressCustomerId = orderer.id;
     loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
   }
 });
@@ -219,14 +224,14 @@ document.getElementById('recip-diff').addEventListener('click', () => {
 // ── 주소 추가 ─────────────────────────────────────────
 document.getElementById('btn-add-address').addEventListener('click', async () => {
   const val = document.getElementById('new-address-input').value.trim();
-  if (!val || !orderer) { showToast('주문자를 먼저 선택하세요'); return; }
+  if (!val || !activeAddressCustomerId) { showToast('주문자 또는 수령자를 먼저 선택하세요'); return; }
   await fetch(`${API}/api/addresses`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customer_id: orderer.id, address: val, is_default: 0 })
+    body: JSON.stringify({ customer_id: activeAddressCustomerId, address: val, is_default: 0 })
   });
   document.getElementById('new-address-input').value = '';
-  await loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
+  await loadAddresses(activeAddressCustomerId, (id) => { selectedAddressId = id; });
   showToast('주소 추가됨');
 });
 
