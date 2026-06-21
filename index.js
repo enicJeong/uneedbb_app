@@ -609,6 +609,20 @@ export default {
         return json({ ok: true });
       }
 
+      // GET /api/orders/:id/txn-links — 이 주문에 연결된 입금 목록
+      if (path.match(/^\/api\/orders\/\d+\/txn-links$/) && method === 'GET') {
+        const id = path.split('/')[3];
+        const rows = await env.DB.prepare(
+          `SELECT l.id, l.amount, l.transaction_id,
+                  t.txn_at, t.memo, t.deposit
+           FROM txn_links l
+           JOIN transactions t ON t.id = l.transaction_id
+           WHERE l.order_id = ?
+           ORDER BY t.txn_at DESC`
+        ).bind(id).all();
+        return json(rows.results);
+      }
+
       // ── 문자 큐 목록 ───────────────────────────────────
       if (path === '/api/sms-queue' && method === 'POST') {
         const { phone, message } = await request.json();
@@ -699,12 +713,24 @@ export default {
 
       // ── 입출금 목록 ────────────────────────────────────
       if (path === '/api/transactions' && method === 'GET') {
-        const rows = await env.DB.prepare(`
-          SELECT t.*,
-            COALESCE((SELECT SUM(amount) FROM txn_links WHERE transaction_id = t.id), 0) + COALESCE(t.adjust_amount, 0) AS linked_amount
-          FROM transactions t
-          ORDER BY t.txn_at DESC
-        `).all();
+        const q = url.searchParams.get('q') || '';
+        let rows;
+        if (q) {
+          rows = await env.DB.prepare(`
+            SELECT t.*,
+              COALESCE((SELECT SUM(amount) FROM txn_links WHERE transaction_id = t.id), 0) + COALESCE(t.adjust_amount, 0) AS linked_amount
+            FROM transactions t
+            WHERE t.memo LIKE ? OR t.description LIKE ? OR CAST(t.deposit AS TEXT) LIKE ? OR t.txn_at LIKE ?
+            ORDER BY t.txn_at DESC LIMIT 50
+          `).bind(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`).all();
+        } else {
+          rows = await env.DB.prepare(`
+            SELECT t.*,
+              COALESCE((SELECT SUM(amount) FROM txn_links WHERE transaction_id = t.id), 0) + COALESCE(t.adjust_amount, 0) AS linked_amount
+            FROM transactions t
+            ORDER BY t.txn_at DESC
+          `).all();
+        }
         const txns = rows.results;
         const ids = txns.map(t => t.id);
         if (ids.length) {

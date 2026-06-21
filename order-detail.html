@@ -21,6 +21,32 @@
     font-size: 11px; font-weight: 700; line-height: 18px;
   }
 
+  /* 입금 연결 */
+  .txn-link-row { display: flex; align-items: center; gap: 8px; padding: 6px 0;
+    border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+  .txn-link-row:last-child { border-bottom: none; }
+  .txn-link-date { font-size: 11px; color: #9ca3af; white-space: nowrap; }
+  .txn-link-memo { flex: 1; font-weight: 600; }
+  .txn-link-amt  { color: #15803d; font-weight: 700; white-space: nowrap; }
+  .txn-link-del  { background: none; border: none; color: #fca5a5; cursor: pointer; font-size: 14px; padding: 0 2px; }
+  .txn-link-del:hover { color: #dc2626; }
+  .txn-search-row { display: flex; gap: 6px; margin-top: 10px; }
+  .txn-search-row input { flex: 1; padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; }
+  .txn-search-row input:focus { outline: none; border-color: #2563eb; }
+  .txn-result { border: 1px solid #e5e7eb; border-radius: 8px; margin-top: 6px;
+    max-height: 180px; overflow-y: auto; display: none; }
+  .txn-result-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border-bottom: 1px solid #f3f4f6; cursor: pointer; font-size: 13px; }
+  .txn-result-item:last-child { border-bottom: none; }
+  .txn-result-item:hover { background: #f9fafb; }
+  .txn-result-date { font-size: 11px; color: #9ca3af; white-space: nowrap; }
+  .txn-result-memo { flex: 1; font-weight: 600; }
+  .txn-result-amt  { color: #15803d; font-weight: 700; white-space: nowrap; }
+  .txn-link-form { margin-top: 8px; display: flex; gap: 6px; align-items: center;
+    padding: 8px 10px; background: #f0fdf4; border-radius: 8px; display: none; font-size: 13px; }
+  .txn-link-form input { width: 120px; padding: 5px 8px; border: 1px solid #d1d5db;
+    border-radius: 6px; font-size: 13px; text-align: right; }
+
   /* SMS 토글 */
   .sms-toggle-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7280; }
   .sms-toggle-wrap.on { color: #2563eb; }
@@ -102,6 +128,24 @@
       <span class="info-value" id="d-payment-status"></span>
     </div>
     <div class="btn-row" style="margin-top:12px" id="payment-btns"></div>
+  </div>
+
+  <!-- 입금 연결 -->
+  <div class="card" id="txn-card">
+    <h2>입금 연결</h2>
+    <div id="txn-links-list"><div style="color:#9ca3af;font-size:13px">연결된 입금 없음</div></div>
+    <div id="txn-linked-total" style="display:none;margin-top:8px;padding:6px 10px;border-radius:7px;font-size:13px;font-weight:700"></div>
+    <div class="txn-search-row">
+      <input type="text" id="txn-search-input" placeholder="거래 검색 (이름·금액·날짜)">
+      <button class="btn btn-outline" id="btn-txn-search">검색</button>
+    </div>
+    <div class="txn-result" id="txn-result"></div>
+    <div class="txn-link-form" id="txn-link-form">
+      <span id="txn-selected-label" style="flex:1;font-weight:600"></span>
+      <input type="number" id="txn-link-amount" placeholder="배분금액">원
+      <button class="btn btn-success" id="btn-txn-link-confirm" style="font-size:12px;padding:5px 12px">연결</button>
+      <button class="btn btn-outline" id="btn-txn-link-cancel" style="font-size:12px;padding:5px 10px">취소</button>
+    </div>
   </div>
 
   <!-- 액션 -->
@@ -429,6 +473,98 @@ applySmsToggle();
 smsToggle.addEventListener('change', applySmsToggle);
 
 loadOrder();
+
+// ── 입금 연결 ─────────────────────────────────────────
+let selectedTxn = null;
+
+async function loadTxnLinks() {
+  const res = await fetch(`${API}/api/orders/${orderId}/txn-links`);
+  const links = await res.json();
+  const list = document.getElementById('txn-links-list');
+  const totalEl = document.getElementById('txn-linked-total');
+  if (!links.length) {
+    list.innerHTML = '<div style="color:#9ca3af;font-size:13px">연결된 입금 없음</div>';
+    totalEl.style.display = 'none';
+    return;
+  }
+  const total = links.reduce((s, l) => s + (l.amount || 0), 0);
+  list.innerHTML = links.map(l => `
+    <div class="txn-link-row">
+      <span class="txn-link-date">${(l.txn_at||'').slice(0,16)}</span>
+      <span class="txn-link-memo">${l.memo||'-'}</span>
+      <span class="txn-link-amt">${(l.amount||0).toLocaleString()}원</span>
+      <button class="txn-link-del" data-link-id="${l.id}">✕</button>
+    </div>`).join('');
+  list.querySelectorAll('.txn-link-del').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('연결을 삭제할까요?')) return;
+      await fetch(`${API}/api/txn-links/${btn.dataset.linkId}`, { method: 'DELETE' });
+      showToast('연결 삭제됨');
+      loadTxnLinks();
+    });
+  });
+  const remaining = (order?.total_amount || 0) - total;
+  totalEl.style.display = '';
+  totalEl.style.background = remaining <= 0 ? '#dcfce7' : '#fef9c3';
+  totalEl.style.color = remaining <= 0 ? '#15803d' : '#854d0e';
+  totalEl.textContent = remaining <= 0
+    ? `✅ 수금 완료 (${total.toLocaleString()}원)`
+    : `입금 합계 ${total.toLocaleString()}원 · 미수 ${remaining.toLocaleString()}원`;
+}
+
+async function searchTxns() {
+  const q = document.getElementById('txn-search-input').value.trim();
+  if (!q) return;
+  const res = await fetch(`${API}/api/transactions?q=${encodeURIComponent(q)}`);
+  const txns = await res.json();
+  const result = document.getElementById('txn-result');
+  result.style.display = '';
+  if (!txns.length) {
+    result.innerHTML = '<div style="padding:10px;font-size:13px;color:#9ca3af">결과 없음</div>';
+    return;
+  }
+  result.innerHTML = txns.slice(0, 20).map(t => `
+    <div class="txn-result-item" data-id="${t.id}" data-deposit="${t.deposit}" data-memo="${t.memo||''}">
+      <span class="txn-result-date">${(t.txn_at||'').slice(0,10)}</span>
+      <span class="txn-result-memo">${t.memo||'-'}</span>
+      <span class="txn-result-amt">${(t.deposit||0).toLocaleString()}원</span>
+    </div>`).join('');
+  result.querySelectorAll('.txn-result-item').forEach(item => {
+    item.addEventListener('click', () => {
+      selectedTxn = { id: +item.dataset.id, deposit: +item.dataset.deposit, memo: item.dataset.memo };
+      document.getElementById('txn-selected-label').textContent = `${selectedTxn.memo} · ${selectedTxn.deposit.toLocaleString()}원`;
+      document.getElementById('txn-link-amount').value = selectedTxn.deposit;
+      document.getElementById('txn-link-form').style.display = 'flex';
+      result.style.display = 'none';
+    });
+  });
+}
+
+document.getElementById('btn-txn-search').addEventListener('click', searchTxns);
+document.getElementById('txn-search-input').addEventListener('keydown', e => { if (e.key === 'Enter') searchTxns(); });
+
+document.getElementById('btn-txn-link-confirm').addEventListener('click', async () => {
+  if (!selectedTxn) return;
+  const amount = parseInt(document.getElementById('txn-link-amount').value) || 0;
+  if (!amount) { showToast('금액을 입력하세요'); return; }
+  await fetch(`${API}/api/transactions/${selectedTxn.id}/links`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ links: [{ order_id: orderId, amount }] })
+  });
+  showToast('✅ 입금 연결됨');
+  document.getElementById('txn-link-form').style.display = 'none';
+  document.getElementById('txn-search-input').value = '';
+  selectedTxn = null;
+  loadTxnLinks();
+});
+
+document.getElementById('btn-txn-link-cancel').addEventListener('click', () => {
+  document.getElementById('txn-link-form').style.display = 'none';
+  selectedTxn = null;
+});
+
+loadTxnLinks();
 </script>
 </body>
 </html>
