@@ -176,9 +176,12 @@ document.getElementById('btn-google').addEventListener('click', () => {
 
 document.getElementById('btn-sync-google').addEventListener('click', async () => {
   if (!accessToken) { showToast('Google 먼저 연결하세요'); return; }
-  showToast('Google 동기화 중...');
+  showToast('전체 고객 불러오는 중...');
+  const allRes = await fetch(`${API}/api/customers?synced=`);
+  const syncTargets = await allRes.json();
+  showToast(`Google 동기화 중... (${syncTargets.length}명)`);
   let created = 0, updated = 0, fail = 0;
-  for (const c of allCustomers) {
+  for (const c of syncTargets) {
     if (c.google_resource_name) {
       await updateGoogleContact(c.google_resource_name, c.name, c.phone, c.memo);
       updated++;
