@@ -332,7 +332,8 @@ function calcAmount(items, shippingFeeId = 'shipping-fee') {
 function autoShipping(items, deliveryType, shippingFeeId = 'shipping-fee') {
   const feeEl = document.getElementById(shippingFeeId);
   if (!feeEl) return;
-  const hasShipping = deliveryType === '택배';
+  const totalQty = items.reduce((s, i) => s + (i.qty || 0), 0);
+  const hasShipping = deliveryType === '택배' && totalQty < 4;
   feeEl.value = hasShipping ? 5000 : 0;
   const onBtn = document.getElementById('shipping-on');
   const offBtn = document.getElementById('shipping-off');
