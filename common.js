@@ -332,11 +332,13 @@ function calcAmount(items, shippingFeeId = 'shipping-fee') {
 function autoShipping(items, deliveryType, shippingFeeId = 'shipping-fee') {
   const feeEl = document.getElementById(shippingFeeId);
   if (!feeEl) return;
-  if (deliveryType !== '택배') {
-    feeEl.value = 0;
-  } else {
-    const totalQty = items.reduce((s, i) => s + i.qty, 0);
-    feeEl.value = totalQty >= 4 ? 0 : 3000;
+  const hasShipping = deliveryType === '택배';
+  feeEl.value = hasShipping ? 5000 : 0;
+  const onBtn = document.getElementById('shipping-on');
+  const offBtn = document.getElementById('shipping-off');
+  if (onBtn && offBtn) {
+    onBtn.classList.toggle('active', hasShipping);
+    offBtn.classList.toggle('active', !hasShipping);
   }
   calcAmount(items, shippingFeeId);
 }

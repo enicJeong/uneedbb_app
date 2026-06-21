@@ -96,7 +96,11 @@
       <div class="amount-row"><span>상품금액</span><span id="sum-items">0원</span></div>
       <div class="amount-row">
         <span>택배비</span>
-        <input type="number" id="shipping-fee" value="0" min="0" step="1000">
+        <div class="toggle-row" style="margin:0">
+          <button class="toggle-btn" id="shipping-on">있음 (5,000원)</button>
+          <button class="toggle-btn active" id="shipping-off">없음</button>
+        </div>
+        <input type="hidden" id="shipping-fee" value="0">
       </div>
       <div class="amount-row total"><span>청구금액</span><span id="sum-total">0원</span></div>
     </div>
@@ -214,6 +218,9 @@ async function loadOrder() {
 
   // 택배비
   document.getElementById('shipping-fee').value = order.shipping_fee;
+  const hasFee = order.shipping_fee > 0;
+  document.getElementById('shipping-on').classList.toggle('active', hasFee);
+  document.getElementById('shipping-off').classList.toggle('active', !hasFee);
   calcAmount(items);
 
   // 우선순위
@@ -310,7 +317,18 @@ document.getElementById('btn-add-item').addEventListener('click', () => {
   });
 });
 
-document.getElementById('shipping-fee').addEventListener('input', () => calcAmount(items));
+document.getElementById('shipping-on').addEventListener('click', () => {
+  document.getElementById('shipping-on').classList.add('active');
+  document.getElementById('shipping-off').classList.remove('active');
+  document.getElementById('shipping-fee').value = 5000;
+  calcAmount(items);
+});
+document.getElementById('shipping-off').addEventListener('click', () => {
+  document.getElementById('shipping-off').classList.add('active');
+  document.getElementById('shipping-on').classList.remove('active');
+  document.getElementById('shipping-fee').value = 0;
+  calcAmount(items);
+});
 
 // ── 우선순위 ──────────────────────────────────────────
 document.querySelectorAll('.priority-btn').forEach(btn => {

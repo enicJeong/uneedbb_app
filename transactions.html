@@ -157,8 +157,8 @@
   </div>
 
   <div class="status-filter">
-    <button class="active" data-filter="">전체</button>
-    <button data-filter="미연결">미연결</button>
+    <button data-filter="">전체</button>
+    <button class="active" data-filter="미연결">미연결</button>
     <button data-filter="확인중">확인중</button>
     <button data-filter="완료">완료</button>
     <button data-filter="기타">기타</button>
@@ -243,7 +243,7 @@ const API = BB_CONFIG.API;
 let allTxns = [];
 let currentTxn = null;
 let selectedOrders = {};
-let statusFilter = '';
+let statusFilter = '미연결';
 
 // ── 상태 계산 ─────────────────────────────────────────
 function calcStatus(t) {
@@ -252,7 +252,7 @@ function calcStatus(t) {
   if (t.txn_status === '완료') return '완료';
   const linked = t.linked_amount || 0;
   if (linked === 0) return '미연결';
-  if (linked >= t.deposit) return '완료';
+  if (linked === t.deposit) return '완료';
   return '확인중';
 }
 
@@ -338,6 +338,7 @@ function render() {
         ${isDeposit ? `<div class="sub-actions">
           <button class="btn btn-primary btn-link-order" data-txn-id="${t.id}" style="font-size:13px;padding:6px 14px">+ 주문 연결</button>
           ${status !== '완료' ? `<button class="btn btn-outline btn-force-complete" data-txn-id="${t.id}" style="font-size:13px;padding:6px 14px;color:#15803d;border-color:#86efac">✅ 완료 처리</button>` : ''}
+          ${status !== '완료' && remain !== 0 ? `<button class="btn btn-outline btn-zero-adjust" data-txn-id="${t.id}" data-remain="${remain}" style="font-size:13px;padding:6px 14px;color:#b45309;border-color:#fcd34d">기타 처리</button>` : ''}
           <button class="btn btn-outline btn-del-txn" data-txn-id="${t.id}" style="font-size:13px;padding:6px 14px;color:#dc2626;border-color:#fca5a5">삭제</button>
         </div>` : `<div class="sub-actions">
           <button class="btn btn-outline btn-del-txn" data-txn-id="${t.id}" style="font-size:13px;padding:6px 14px;color:#dc2626;border-color:#fca5a5">삭제</button>
@@ -392,6 +393,23 @@ function render() {
           });
         }
         showToast('✅ 완료 처리됨');
+        await load();
+        document.getElementById(`sub-tr-${t.id}`)?.classList.add('open');
+      });
+    }
+
+    const btnZeroAdj = subTr.querySelector('.btn-zero-adjust');
+    if (btnZeroAdj) {
+      btnZeroAdj.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const remain = +e.target.dataset.remain;
+        const memo = prompt(`미배분 잔액 ${fmtAmt(remain)}을 기타 처리합니다.\n사유를 입력하세요:`);
+        if (memo === null) return;
+        await fetch(`${API}/api/transactions/${t.id}/adjust`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ adjust_amount: remain, adjust_memo: memo || '기타' })
+        });
+        showToast('기타 처리됨');
         await load();
         document.getElementById(`sub-tr-${t.id}`)?.classList.add('open');
       });
