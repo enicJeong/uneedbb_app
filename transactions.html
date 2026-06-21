@@ -331,18 +331,19 @@ function render() {
         e.stopPropagation();
         const memo = prompt('완료 처리 사유를 입력하세요 (선택사항):');
         if (memo === null) return;
-        await fetch(`${API}/api/transactions/${e.target.dataset.txnId}/status`, {
+        await fetch(`${API}/api/transactions/${t.id}/status`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ txn_status: '완료' })
         });
         if (memo) {
-          await fetch(`${API}/api/transactions/${e.target.dataset.txnId}/memo`, {
+          await fetch(`${API}/api/transactions/${t.id}/memo`, {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ admin_memo: memo })
           });
         }
         showToast('✅ 완료 처리됨');
         await load();
+        document.getElementById(`sub-tr-${t.id}`)?.classList.add('open');
       });
     }
 
