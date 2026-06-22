@@ -121,6 +121,7 @@
     <div class="tracking-add">
       <input type="text" id="tracking-input" placeholder="송장번호 입력">
       <button class="btn btn-primary" id="btn-save-tracking">저장</button>
+      <a id="btn-track-link" href="#" target="_blank" class="btn" style="display:none;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;text-decoration:none">택배조회</a>
     </div>
   </div>
 
@@ -372,6 +373,7 @@ function render() {
   document.getElementById('tracking-input').value = order.tracking_no || '';
   document.getElementById('tracking-card').style.display =
     order.delivery_type === '택배' ? '' : 'none';
+  updateTrackLink(order.tracking_no);
 
 }
 
@@ -402,11 +404,23 @@ async function confirmOrder() {
 }
 
 
+function updateTrackLink(val) {
+  const link = document.getElementById('btn-track-link');
+  const digits = (val || '').replace(/[^0-9]/g, '');
+  if (digits.length === 11) {
+    link.href = `https://www.ilogen.com/m/personal/trace/${digits}`;
+    link.style.display = '';
+  } else {
+    link.style.display = 'none';
+  }
+}
+
 document.getElementById('tracking-input').addEventListener('input', (e) => {
   const digits = e.target.value.replace(/[^0-9]/g, '').slice(0, 11);
   if (digits.length <= 3) e.target.value = digits;
   else if (digits.length <= 7) e.target.value = `${digits.slice(0,3)}-${digits.slice(3)}`;
   else e.target.value = `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7)}`;
+  updateTrackLink(e.target.value);
 });
 
 document.getElementById('btn-save-tracking').addEventListener('click', async () => {
