@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>주문 목록 — bb</title>
 <link rel="stylesheet" href="style.css">
@@ -235,13 +236,17 @@ function itemBadges(summary) {
 }
 
 function updateSummary() {
-  ['주문입력','주문확정','주문출력','송장출력','배송완료','수금완료'].forEach(s => {
+  ['주문입력','주문확정','주문출력','송장출력','배송완료'].forEach(s => {
     document.getElementById('cnt-' + s).textContent = allOrders.filter(o => o.status === s).length;
   });
+  document.getElementById('cnt-수금완료').textContent =
+    allOrders.filter(o => o.payment_status === '수금완료' || o.status === '수금완료').length;
 }
 
 function getFiltered() {
-  let list = currentFilter ? allOrders.filter(o => o.status === currentFilter) : allOrders;
+  let list = currentFilter === '수금완료'
+    ? allOrders.filter(o => o.payment_status === '수금완료' || o.status === '수금완료')
+    : currentFilter ? allOrders.filter(o => o.status === currentFilter && o.payment_status !== '수금완료') : allOrders;
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     list = list.filter(o => [
@@ -296,6 +301,7 @@ function renderOrders() {
         <div class="badges">
           <span class="badge badge-p${priorityClass}">P${o.priority}</span>
           <span class="badge badge-${o.status}">${o.status}</span>
+          ${o.payment_status === '수금완료' ? `<span class="badge" style="background:#d1fae5;color:#065f46;border:1px solid #6ee7b7">💰 수금</span>` : ''}
         </div>
       </div>
       <div class="order-names">${o.orderer_name}${recipientText}</div>
@@ -326,7 +332,10 @@ function renderOrders() {
       </td>
       <td class="order-no">${o.order_no || '#' + o.id}</td>
       <td style="color:#9ca3af;white-space:nowrap">${date}</td>
-      <td><span class="badge badge-${o.status}">${o.status}</span></td>
+      <td>
+        <span class="badge badge-${o.status}">${o.status}</span>
+        ${o.payment_status === '수금완료' ? `<br><span class="badge" style="background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;margin-top:3px">💰 수금</span>` : ''}
+      </td>
       <td style="text-align:center">
         <input type="checkbox" class="print-chk" ${printed ? 'checked' : ''} data-id="${o.id}" data-printed="${printed ? 1 : 0}">
       </td>

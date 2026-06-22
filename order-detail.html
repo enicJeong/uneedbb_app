@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>주문 상세 — bb</title>
 <link rel="stylesheet" href="style.css">
@@ -70,6 +71,9 @@
   <div class="card">
     <h2>진행 상태</h2>
     <div class="status-flow" id="status-flow"></div>
+    <div id="payment-status-wrap" style="display:none;margin-top:8px">
+      <span class="badge" style="background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;padding:4px 14px;font-size:12px">💰 수금완료</span>
+    </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:8px">
       <div class="btn-row" id="status-btns"></div>
       <label class="sms-toggle-wrap" id="sms-toggle-wrap" title="주문확정 시 문자 발송 여부">
@@ -206,7 +210,7 @@ function getProductColor(name) {
   }
   return productColorMap[name];
 }
-const STATUSES = ['주문입력', '주문확정', '주문출력', '송장출력', '배송완료', '수금완료'];
+const STATUSES = ['주문입력', '주문확정', '주문출력', '송장출력', '배송완료'];
 const params = new URLSearchParams(location.search);
 const orderId = params.get('id');
 let order = null;
@@ -223,21 +227,26 @@ const STATUS_COLOR = {
   '주문출력': '#16a34a',
   '송장출력': '#f97316',
   '배송완료': '#3b82f6',
-  '수금완료': '#94a3b8',
 };
 
 function render() {
   document.getElementById('page-title').textContent = order.order_no || `주문 #${order.id}`;
 
-  const currentColor = STATUS_COLOR[order.status] || '#2563eb';
+  // 기존 status='수금완료' 데이터는 배송완료로 표시
+  const displayStatus = order.status === '수금완료' ? '배송완료' : order.status;
+  const currentColor = STATUS_COLOR[displayStatus] || '#2563eb';
 
   // 진행 상태 카드 테두리 색상
   document.querySelector('.card').style.borderTop = `4px solid ${currentColor}`;
 
+  // 수금 배지
+  const isPaid = order.payment_status === '수금완료' || order.status === '수금완료';
+  document.getElementById('payment-status-wrap').style.display = isPaid ? '' : 'none';
+
   // 상태 흐름
   const flow = document.getElementById('status-flow');
   flow.innerHTML = '';
-  const idx = STATUSES.indexOf(order.status);
+  const idx = STATUSES.indexOf(displayStatus);
   STATUSES.forEach((s, i) => {
     const isDone = i < idx;
     const isCurrent = i === idx;
@@ -651,11 +660,11 @@ document.getElementById('btn-txn-link-confirm').addEventListener('click', async 
     body: JSON.stringify({ links: [{ order_id: orderId, amount }] })
   });
 
-  // 2. 주문 수금완료 처리
-  await fetch(`${API}/api/orders/${orderId}/status`, {
+  // 2. 수금완료 처리 (payment_status)
+  await fetch(`${API}/api/orders/${orderId}/payment-status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: '수금완료' })
+    body: JSON.stringify({ payment_status: '수금완료' })
   });
 
   // 3. 잔액 확인 → 0원이면 트랜잭션 자동 완료 (단건 조회)

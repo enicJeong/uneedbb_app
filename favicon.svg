@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- 블루베리 열매 -->
+  <circle cx="16" cy="18" r="12" fill="#3730a3"/>
+  <circle cx="16" cy="18" r="12" fill="url(#berry-grad)"/>
+  <!-- 꼭지 (calyx) -->
+  <g fill="#4ade80" transform="translate(16,7)">
+    <ellipse cx="0"   cy="-1.5" rx="1.2" ry="3" transform="rotate(0)"/>
+    <ellipse cx="0"   cy="-1.5" rx="1.2" ry="3" transform="rotate(72)"/>
+    <ellipse cx="0"   cy="-1.5" rx="1.2" ry="3" transform="rotate(144)"/>
+    <ellipse cx="0"   cy="-1.5" rx="1.2" ry="3" transform="rotate(216)"/>
+    <ellipse cx="0"   cy="-1.5" rx="1.2" ry="3" transform="rotate(288)"/>
+  </g>
+  <!-- 중앙 움푹한 별 모양 -->
+  <circle cx="16" cy="7" r="2" fill="#1e1b4b"/>
+  <!-- 하이라이트 -->
+  <ellipse cx="12" cy="14" rx="2.5" ry="2" fill="white" opacity="0.18"/>
+  <defs>
+    <radialGradient id="berry-grad" cx="40%" cy="35%" r="60%">
+      <stop offset="0%"   stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </radialGradient>
+  </defs>
+</svg>

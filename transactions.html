@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>입출금기록 — bb</title>
 <link rel="stylesheet" href="style.css">
@@ -585,9 +586,9 @@ document.getElementById('modal-confirm').addEventListener('click', async () => {
     body: JSON.stringify({ links })
   });
   for (const o of Object.values(selectedOrders)) {
-    await fetch(`${API}/api/orders/${o.id}/status`, {
+    await fetch(`${API}/api/orders/${o.id}/payment-status`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: '수금완료' })
+      body: JSON.stringify({ payment_status: '수금완료' })
     });
   }
   // 잔액 0 → 트랜잭션 완료
@@ -611,9 +612,9 @@ document.getElementById('modal-force-complete').addEventListener('click', async 
       body: JSON.stringify({ links })
     });
     for (const o of Object.values(selectedOrders)) {
-      await fetch(`${API}/api/orders/${o.id}/status`, {
+      await fetch(`${API}/api/orders/${o.id}/payment-status`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: '수금완료' })
+        body: JSON.stringify({ payment_status: '수금완료' })
       });
     }
   }
@@ -669,7 +670,7 @@ async function loadAutoMatch(t, subTr) {
 
   const res = await fetch(`${API}/api/orders?name=${encodeURIComponent(name)}&limit=20`);
   const orders = await res.json();
-  const unlinked = orders.filter(o => !linkedOrderIds.has(o.id) && o.status !== '수금완료' && o.status !== '삭제');
+  const unlinked = orders.filter(o => !linkedOrderIds.has(o.id) && o.payment_status !== '수금완료' && o.status !== '삭제');
 
   if (!unlinked.length) {
     el.innerHTML = `<span style="color:#9ca3af">🔍 "${name}" 미수 주문 없음</span>`;
@@ -695,9 +696,9 @@ async function loadAutoMatch(t, subTr) {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ links: [{ order_id: orderId, amount }] })
       });
-      await fetch(`${API}/api/orders/${orderId}/status`, {
+      await fetch(`${API}/api/orders/${orderId}/payment-status`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: '수금완료' })
+        body: JSON.stringify({ payment_status: '수금완료' })
       });
       const txn = await (await fetch(`${API}/api/transactions/${t.id}`)).json();
       if ((txn.deposit - (txn.linked_amount||0)) <= 0) {
