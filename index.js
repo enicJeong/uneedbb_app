@@ -696,6 +696,24 @@ export default {
         return json({ ok: true });
       }
 
+      // ── 주소 Geocoding (Naver) ────────────────────────
+      if (path === '/api/geocode' && method === 'GET') {
+        const query = url.searchParams.get('query') || '';
+        if (!query) return err('query 필수');
+        const res = await fetch(
+          `https://maps.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(query)}`,
+          {
+            headers: {
+              'X-NCP-APIGW-API-KEY-ID': env.NCP_CLIENT_ID,
+              'X-NCP-APIGW-API-KEY':    env.NCP_CLIENT_SECRET,
+              'Accept': 'application/json',
+            }
+          }
+        );
+        const data = await res.json();
+        return json(data, res.status);
+      }
+
       // ── 최근 사용 주소 ─────────────────────────────────
       if (path.match(/^\/api\/customers\/\d+\/recent-address$/) && method === 'GET') {
         const id = path.split('/')[3];

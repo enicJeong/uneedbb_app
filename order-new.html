@@ -90,8 +90,12 @@
         <label>배송 주소</label>
         <div id="address-list"></div>
         <div class="field" style="margin-top:8px">
-          <input type="text" id="new-address-input" placeholder="새 주소 직접 입력">
-          <button class="btn-add-dashed" id="btn-add-address" style="margin-top:6px">+ 이 주소로 등록</button>
+          <div style="display:flex;gap:6px">
+            <input type="text" id="new-address-input" placeholder="주소 검색 (예: 강남구 테헤란로 152)">
+            <button class="btn btn-outline" id="btn-geocode-search" style="white-space:nowrap;padding:7px 12px">🔍 검색</button>
+          </div>
+          <div id="geocode-results" style="display:none;margin-top:6px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;background:#fff"></div>
+          <button class="btn-add-dashed" id="btn-add-address" style="margin-top:6px;display:none">+ 이 주소로 등록</button>
         </div>
       </div>
     </div>
@@ -226,9 +230,55 @@ document.getElementById('recip-diff').addEventListener('click', () => {
   document.getElementById('recipient-wrap').style.display = '';
 });
 
+// ── 주소 Geocoding 검색 ───────────────────────────────
+let geocodedAddress = null;
+
+async function runGeocodeSearch() {
+  const q = document.getElementById('new-address-input').value.trim();
+  if (!q) return;
+  const resultsEl = document.getElementById('geocode-results');
+  const addBtn    = document.getElementById('btn-add-address');
+  resultsEl.innerHTML = '<div style="padding:10px;font-size:13px;color:#6b7280">검색 중...</div>';
+  resultsEl.style.display = '';
+  addBtn.style.display = 'none';
+  geocodedAddress = null;
+
+  const res  = await fetch(`${API}/api/geocode?query=${encodeURIComponent(q)}`);
+  const data = await res.json();
+  const list = data.addresses || [];
+
+  if (!list.length) {
+    resultsEl.innerHTML = '<div style="padding:10px;font-size:13px;color:#dc2626">⚠️ 주소를 찾을 수 없습니다. 다시 입력해 주세요.</div>';
+    return;
+  }
+
+  resultsEl.innerHTML = list.map((a, i) => `
+    <div class="geocode-item" data-idx="${i}" style="padding:9px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:13px">
+      <div style="font-weight:600;color:#111">${a.roadAddress || a.jibunAddress}</div>
+      ${a.roadAddress && a.jibunAddress ? `<div style="font-size:11px;color:#9ca3af;margin-top:2px">${a.jibunAddress}</div>` : ''}
+    </div>`).join('');
+
+  resultsEl.querySelectorAll('.geocode-item').forEach(item => {
+    item.addEventListener('mouseenter', () => item.style.background = '#f9fafb');
+    item.addEventListener('mouseleave', () => item.style.background = '');
+    item.addEventListener('click', () => {
+      const a = list[+item.dataset.idx];
+      geocodedAddress = a.roadAddress || a.jibunAddress;
+      document.getElementById('new-address-input').value = geocodedAddress;
+      resultsEl.style.display = 'none';
+      addBtn.style.display = '';
+    });
+  });
+}
+
+document.getElementById('btn-geocode-search').addEventListener('click', runGeocodeSearch);
+document.getElementById('new-address-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); runGeocodeSearch(); }
+});
+
 // ── 주소 추가 ─────────────────────────────────────────
 document.getElementById('btn-add-address').addEventListener('click', async () => {
-  const val = document.getElementById('new-address-input').value.trim();
+  const val = geocodedAddress || document.getElementById('new-address-input').value.trim();
   if (!val || !activeAddressCustomerId) { showToast('주문자 또는 수령자를 먼저 선택하세요'); return; }
   await fetch(`${API}/api/addresses`, {
     method: 'POST',
@@ -236,6 +286,8 @@ document.getElementById('btn-add-address').addEventListener('click', async () =>
     body: JSON.stringify({ customer_id: activeAddressCustomerId, address: val, is_default: 0 })
   });
   document.getElementById('new-address-input').value = '';
+  document.getElementById('btn-add-address').style.display = 'none';
+  geocodedAddress = null;
   await loadAddresses(activeAddressCustomerId, (id) => { selectedAddressId = id; });
   showToast('주소 추가됨');
 });
