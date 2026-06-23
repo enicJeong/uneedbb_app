@@ -217,6 +217,8 @@ const productColorMap = {};
 let productColorIdx = 0;
 
 function getProductColor(name) {
+  const preset = (BB_CONFIG.PRODUCTS || []).find(p => p.name === name);
+  if (preset?.color) return preset.color;
   if (!productColorMap[name]) {
     productColorMap[name] = BADGE_COLORS[productColorIdx % BADGE_COLORS.length];
     productColorIdx++;

@@ -212,9 +212,15 @@ function renderItems(items, onUpdate) {
       `<option value="${p.name}" data-price="${p.price}" ${p.name === item.product ? 'selected' : ''}>${p.name}</option>`
     ).join('');
     const tr = document.createElement('tr');
-    const productPresets = BB_CONFIG.PRODUCTS.map(p =>
-      `<button class="product-preset" data-idx="${i}" data-name="${p.name}" data-price="${p.price}" style="padding:3px 10px;border:1px solid ${item.product===p.name?'#2563eb':'#e5e7eb'};border-radius:4px;background:${item.product===p.name?'#eff6ff':'#fff'};color:${item.product===p.name?'#2563eb':'#6b7280'};font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;width:100%;text-align:left">${p.name}</button>`
-    ).join('');
+    const productPresets = BB_CONFIG.PRODUCTS.map(p => {
+      const c = p.color || { bg:'#f3f4f6', border:'#d1d5db', text:'#374151' };
+      const isSelected = item.product === p.name;
+      const bg     = isSelected ? c.bg     : '#fff';
+      const border = isSelected ? c.border : '#e5e7eb';
+      const color  = isSelected ? c.text   : '#6b7280';
+      const fw     = isSelected ? '700'    : '500';
+      return `<button class="product-preset" data-idx="${i}" data-name="${p.name}" data-price="${p.price}" style="padding:3px 10px;border:1px solid ${border};border-radius:4px;background:${bg};color:${color};font-size:11px;font-weight:${fw};cursor:pointer;white-space:nowrap;width:100%;text-align:left">${p.name}</button>`;
+    }).join('');
     tr.innerHTML = `
       <td>
         <div style="display:flex;flex-direction:column;gap:3px">${productPresets}</div>
