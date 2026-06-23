@@ -378,11 +378,16 @@ function render() {
 }
 
 async function updateStatus(status) {
+  const prevStatus = order?.status;
   await fetch(`${API}/api/orders/${orderId}/status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status })
   });
+  // 송장출력 → 주문출력으로 뒤로 갈 때 SMS 대기열 삭제
+  if (prevStatus === '송장출력' && status === '주문출력') {
+    await fetch(`${API}/api/sms-queue?order_id=${orderId}`, { method: 'DELETE' });
+  }
   showToast(`✅ ${status} 처리 완료`);
   await loadOrder();
 }

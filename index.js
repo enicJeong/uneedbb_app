@@ -169,10 +169,12 @@ export default {
         const { name, memo, google_resource_name } = body;
         const phone = normalizePhone(body.phone);
         if (!name || !phone) return err('name, phone 필수');
-        const result = await env.DB.prepare(
-          `INSERT INTO customers (name, phone, memo, google_resource_name) VALUES (?, ?, ?, ?)`
+        await env.DB.prepare(
+          `INSERT INTO customers (name, phone, memo, google_resource_name) VALUES (?, ?, ?, ?)
+           ON CONFLICT(phone) DO UPDATE SET name=excluded.name, memo=COALESCE(NULLIF(excluded.memo,''), memo)`
         ).bind(name, phone, memo || '', google_resource_name || '').run();
-        return json({ id: result.meta.last_row_id }, 201);
+        const row = await env.DB.prepare(`SELECT id FROM customers WHERE phone=?`).bind(phone).first();
+        return json({ id: row.id }, 201);
       }
 
       if (path === '/api/customers/counts' && method === 'GET') {
@@ -693,6 +695,12 @@ export default {
       if (path.match(/^\/api\/sms-queue\/\d+$/) && method === 'DELETE') {
         const id = path.split('/')[3];
         await env.DB.prepare(`DELETE FROM sms_queue WHERE id=?`).bind(id).run();
+        return json({ ok: true });
+      }
+      if (path === '/api/sms-queue' && method === 'DELETE') {
+        const orderId = url.searchParams.get('order_id');
+        if (!orderId) return err('order_id 필수');
+        await env.DB.prepare(`DELETE FROM sms_queue WHERE order_id=?`).bind(orderId).run();
         return json({ ok: true });
       }
 
