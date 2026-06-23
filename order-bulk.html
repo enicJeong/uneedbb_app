@@ -484,28 +484,41 @@ document.getElementById('bulk-grid').addEventListener('paste', e => {
   const lines = text.trim().split('\n').filter(l => l.trim());
   const parsed = lines.map(line => {
     const c = line.split('\t').map(s => s.trim());
-    const rawDate = c[0] || '';
-    let created_at = '';
-    if (rawDate) {
+    // 자동 감지: c[0]이 날짜 형식이면 풀포맷, 아니면 단축 포맷
+    const isDate = /^\d{2,4}[-\/]\d{1,2}([-\/]\d{1,2})?$/.test(c[0]);
+    if (isDate) {
+      const rawDate = c[0];
       const year = new Date().getFullYear();
       const parts = rawDate.replace(/\//g, '-').split('-');
-      created_at = parts.length === 2
+      const created_at = parts.length === 2
         ? `${year}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`
         : rawDate;
+      return newBulkRow({
+        created_at,
+        order_no:        c[1] || '',
+        orderer_name:    c[2] || '',
+        orderer_phone:   (c[3] || '').replace(/[^0-9]/g, ''),
+        memo:            c[4] || '',
+        product:         parseProduct(c[5] || ''),
+        qty:             parseInt(c[6]) || 1,
+        delivery_type:   parseDelivery(c[7] || ''),
+        recipient_name:  c[8] || '',
+        recipient_phone: (c[9] || '').replace(/[^0-9]/g, ''),
+        address:         c[10] || '',
+      });
+    } else {
+      // 단축 포맷: 주문자 | 전화 | (빈칸) | 메모 | 수량 | 배송방법 | 수령자 | 수령자전화 | 주소
+      return newBulkRow({
+        orderer_name:    c[0] || '',
+        orderer_phone:   (c[1] || '').replace(/[^0-9]/g, ''),
+        memo:            c[3] || '',
+        qty:             parseInt(c[4]) || 1,
+        delivery_type:   parseDelivery(c[5] || ''),
+        recipient_name:  c[6] || '',
+        recipient_phone: (c[7] || '').replace(/[^0-9]/g, ''),
+        address:         c[8] || '',
+      });
     }
-    return newBulkRow({
-      created_at,
-      order_no:       c[1] || '',
-      orderer_name:   c[2] || '',
-      orderer_phone:  (c[3] || '').replace(/[^0-9]/g, ''),
-      memo:           c[4] || '',
-      product:        parseProduct(c[5] || ''),
-      qty:            parseInt(c[6]) || 1,
-      delivery_type:  parseDelivery(c[7] || ''),
-      recipient_name:  c[8] || '',
-      recipient_phone: (c[9] || '').replace(/[^0-9]/g, ''),
-      address:         c[10] || '',
-    });
   });
 
   // 포커스 행 기준 삽입
