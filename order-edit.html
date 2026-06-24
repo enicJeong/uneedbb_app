@@ -201,17 +201,19 @@ async function loadOrder() {
   });
   document.getElementById('address-wrap').style.display = deliveryType !== '현장수령' ? '' : 'none';
 
-  // 주소
+  // 주소 — 수령자 다름이면 recipient 기준, 동일이면 orderer 기준
   selectedAddressId = order.address_id;
-  if (deliveryType !== '현장수령' && orderer) {
-    const res2 = await fetch(`${API}/api/customers/${orderer.id}`);
-    const data = await res2.json();
-    renderAddresses(data.addresses || [], null, (id) => { selectedAddressId = id || order.address_id; });
-    // 기존 선택 주소 유지
-    selectedAddressId = order.address_id;
-    document.querySelectorAll('.addr-item').forEach(el => {
-      el.classList.toggle('selected', +el.dataset.id === order.address_id);
-    });
+  if (deliveryType !== '현장수령') {
+    const addrTarget = (!recipientSame && recipient) ? recipient : orderer;
+    if (addrTarget) {
+      const res2 = await fetch(`${API}/api/customers/${addrTarget.id}`);
+      const data = await res2.json();
+      renderAddresses(data.addresses || [], null, (id) => { selectedAddressId = id || order.address_id; });
+      selectedAddressId = order.address_id;
+      document.querySelectorAll('.addr-item').forEach(el => {
+        el.classList.toggle('selected', +el.dataset.id === order.address_id);
+      });
+    }
   }
 
   // 상품
@@ -238,6 +240,15 @@ async function loadOrder() {
   document.getElementById('memo').value = order.memo || '';
 }
 
+// 주소목록을 올바른 고객(수령자 다름→recipient, 동일→orderer)에서 로드
+async function refreshAddresses() {
+  if (deliveryType === '현장수령') return;
+  const target = (!recipientSame && recipient) ? recipient : (recipientSame && orderer) ? orderer : null;
+  if (!target) { document.getElementById('address-list').innerHTML = ''; selectedAddressId = null; return; }
+  activeAddressCustomerId = target.id;
+  await loadAddresses(target.id, (id) => { selectedAddressId = id; });
+}
+
 // ── 주문자 검색 ───────────────────────────────────────
 setupSearch('orderer-input', 'orderer-search-btn', 'orderer-dropdown', null, async (c) => {
   orderer = c;
@@ -249,9 +260,7 @@ setupSearch('orderer-input', 'orderer-search-btn', 'orderer-dropdown', null, asy
     document.getElementById('address-list').innerHTML = '';
     selectedAddressId = null;
   });
-  if (deliveryType !== '현장수령') {
-    await loadAddresses(c.id, (id) => { selectedAddressId = id; });
-  }
+  await refreshAddresses();
 });
 
 // ── 수령자 검색 ───────────────────────────────────────
@@ -262,13 +271,9 @@ setupSearch('recipient-input', 'recipient-search-btn', 'recipient-dropdown', nul
     recipient = null;
     document.getElementById('recipient-search-field').style.display = '';
     document.getElementById('recipient-selected').style.display = 'none';
-    if (orderer && deliveryType !== '현장수령') {
-      loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
-    }
+    refreshAddresses();
   });
-  if (deliveryType !== '현장수령') {
-    await loadAddresses(c.id, (id) => { selectedAddressId = id; });
-  }
+  await refreshAddresses();
 });
 
 // 수령자 토글
@@ -277,15 +282,14 @@ document.getElementById('recip-same').addEventListener('click', () => {
   document.getElementById('recip-same').classList.add('active');
   document.getElementById('recip-diff').classList.remove('active');
   document.getElementById('recipient-wrap').style.display = 'none';
-  if (orderer && deliveryType !== '현장수령') {
-    loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
-  }
+  refreshAddresses();
 });
 document.getElementById('recip-diff').addEventListener('click', () => {
   recipientSame = false;
   document.getElementById('recip-diff').classList.add('active');
   document.getElementById('recip-same').classList.remove('active');
   document.getElementById('recipient-wrap').style.display = '';
+  refreshAddresses();
 });
 
 // ── 주소 Geocoding 검색 ───────────────────────────────
