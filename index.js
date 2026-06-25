@@ -243,6 +243,13 @@ export default {
         return json({ ok: true });
       }
 
+      if (path.match(/^\/api\/customers\/\d+$/) && method === 'DELETE') {
+        const id = path.split('/')[3];
+        await env.DB.prepare(`DELETE FROM addresses WHERE customer_id=?`).bind(id).run();
+        await env.DB.prepare(`DELETE FROM customers WHERE id=?`).bind(id).run();
+        return json({ ok: true });
+      }
+
       // ── 주소 ──────────────────────────────────────────
       if (path === '/api/addresses' && method === 'POST') {
         const { customer_id, label, address, is_default } = await request.json();

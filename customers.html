@@ -116,6 +116,7 @@
     <button class="btn btn-success" id="modal-save">저장</button>
     <button class="btn btn-outline" id="modal-cancel">취소</button>
     <button class="btn btn-outline" id="modal-order" style="display:none">주문 입력 →</button>
+    <button class="btn" id="modal-delete" style="display:none;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5">삭제</button>
   </div>
 </div>
 
@@ -342,6 +343,7 @@ async function openModal(customer) {
   document.getElementById('m-memo').value = customer.memo || '';
   document.getElementById('addr-section').style.display = '';
   document.getElementById('modal-order').style.display = '';
+  document.getElementById('modal-delete').style.display = '';
   const res = await fetch(`${API}/api/customers/${customer.id}`);
   const data = await res.json();
   renderAddrList(data.addresses || []);
@@ -357,6 +359,7 @@ function openNewModal() {
   document.getElementById('m-memo').value = '';
   document.getElementById('addr-section').style.display = 'none';
   document.getElementById('modal-order').style.display = 'none';
+  document.getElementById('modal-delete').style.display = 'none';
   document.getElementById('addr-list').innerHTML = '';
   showModal();
 }
@@ -373,6 +376,14 @@ function hideModal() {
 
 document.getElementById('modal-bg').addEventListener('click', hideModal);
 document.getElementById('modal-cancel').addEventListener('click', hideModal);
+document.getElementById('modal-delete').addEventListener('click', async () => {
+  if (!currentCustomer) return;
+  if (!confirm(`'${currentCustomer.name}' 고객을 삭제할까요?\n주소도 함께 삭제됩니다.`)) return;
+  await fetch(`${API}/api/customers/${currentCustomer.id}`, { method: 'DELETE' });
+  showToast('✅ 고객 삭제 완료');
+  hideModal();
+  loadCustomers();
+});
 document.getElementById('btn-new').addEventListener('click', openNewModal);
 document.getElementById('modal-order').addEventListener('click', () => {
   hideModal();
