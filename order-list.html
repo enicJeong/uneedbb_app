@@ -103,6 +103,7 @@
       <button class="btn btn-outline" id="btn-nemonic" onclick="fetch('https://nemonic.uneedbb.kr/trigger')">네모닉출력</button>
       <button class="btn btn-outline" id="btn-dl-excel">📥 엑셀 다운</button>
       <button class="btn btn-outline" id="btn-excel">📦 택배사엑셀</button>
+      <a href="https://logis.ilogen.com/" target="_blank"><button class="btn btn-outline">🚚 로젠택배</button></a>
       <a href="order-new.html"><button class="btn btn-primary">+ 새 주문</button></a>
     </div>
   </div>
@@ -429,7 +430,7 @@ document.getElementById('btn-dl-excel').addEventListener('click', () => {
   if (!filtered.length) { showToast('다운로드할 데이터가 없습니다'); return; }
 
   const label = currentFilter || '전체';
-  const header = ['주문번호','접수일','진행','주문자','주문자전화','메모','수령자','수령자전화','배송방법','주소','택배송장','청구금액','수금','P'];
+  const header = ['주문번호','접수일','진행','주문자','주문자전화','메모','수령자','수령자전화','배송방법','주소','택배송장','배송일','청구금액','수금','P'];
   const dataRows = filtered.map(o => [
     o.order_no || '',
     (o.created_at || '').slice(0, 10),
@@ -442,6 +443,7 @@ document.getElementById('btn-dl-excel').addEventListener('click', () => {
     o.delivery_type || '',
     o.address || '',
     o.tracking_no || '',
+    o.tracking_no ? (o.updated_at || '').slice(0, 10) : '',
     o.total_amount || 0,
     o.payment_status || '',
     o.priority || '',
