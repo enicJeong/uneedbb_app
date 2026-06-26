@@ -123,6 +123,7 @@
       <button class="btn btn-primary" id="btn-save-tracking">저장</button>
       <a id="btn-track-link" href="#" target="_blank" class="btn" style="display:none;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;text-decoration:none">택배조회</a>
     </div>
+    <button class="btn" id="btn-sms-reserve" style="display:none;margin-top:8px;background:#f0fdf4;color:#16a34a;border:1px solid #86efac">📨 송장문자 예약</button>
   </div>
 
   <!-- 입금 연결 -->
@@ -414,12 +415,15 @@ async function confirmOrder() {
 
 function updateTrackLink(val) {
   const link = document.getElementById('btn-track-link');
+  const smsBtn = document.getElementById('btn-sms-reserve');
   const digits = (val || '').replace(/[^0-9]/g, '');
   if (digits.length === 11) {
     link.href = `https://www.ilogen.com/m/personal/trace/${digits}`;
     link.style.display = '';
+    smsBtn.style.display = '';
   } else {
     link.style.display = 'none';
+    smsBtn.style.display = 'none';
   }
 }
 
@@ -471,6 +475,16 @@ document.getElementById('btn-print').addEventListener('click', () => {
   document.getElementById('print-area').style.display = '';
   window.print();
   document.getElementById('print-area').style.display = 'none';
+});
+
+document.getElementById('btn-sms-reserve').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-sms-reserve');
+  btn.disabled = true;
+  btn.textContent = '등록 중...';
+  await fetch(`${API}/api/orders/${orderId}/delivery-sms`, { method: 'POST' });
+  showToast('✅ 송장문자 예약됨');
+  btn.disabled = false;
+  btn.textContent = '📨 송장문자 예약';
 });
 
 document.getElementById('btn-edit').addEventListener('click', () => {

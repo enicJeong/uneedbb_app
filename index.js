@@ -75,23 +75,30 @@ async function insertDeliverySms(db, orderId) {
   const makeMsg = (name) =>
     `[블루베리아침농원]\n<${order.orderer_name}>님이 주문하신 블루베리 ${qty}Kg 가\n<${name}>님께 ${dateStr} 저녁 택배로 발송하였습니다.\n로젠택배\n[${trackingNo}]`;
 
-  const insertIfNew = async (customerId, phone, message) => {
+  const upsertSms = async (customerId, phone, message) => {
     const dup = await db.prepare(
-      `SELECT id FROM sms_queue WHERE order_id = ? AND phone = ?`
+      `SELECT id, status FROM sms_queue WHERE order_id = ? AND phone = ?`
     ).bind(orderId, phone).first();
-    if (dup) return;
-    await db.prepare(
-      `INSERT INTO sms_queue (order_id, customer_id, phone, message) VALUES (?, ?, ?, ?)`
-    ).bind(orderId, customerId, phone, message).run();
+    if (dup) {
+      // 이미 발송된 건은 건드리지 않음
+      if (dup.status === 'sent') return;
+      await db.prepare(
+        `UPDATE sms_queue SET message=?, updated_at=datetime('now','localtime') WHERE id=?`
+      ).bind(message, dup.id).run();
+    } else {
+      await db.prepare(
+        `INSERT INTO sms_queue (order_id, customer_id, phone, message) VALUES (?, ?, ?, ?)`
+      ).bind(orderId, customerId, phone, message).run();
+    }
   };
 
   const sameRecipient = recipientPhone === order.orderer_phone;
 
   if (sameRecipient) {
-    await insertIfNew(order.orderer_id, recipientPhone, makeMsg(recipientName));
+    await upsertSms(order.orderer_id, recipientPhone, makeMsg(recipientName));
   } else {
-    await insertIfNew(order.orderer_id, order.orderer_phone, makeMsg(recipientName));
-    await insertIfNew(order.recipient_id, recipientPhone, makeMsg(recipientName));
+    await upsertSms(order.orderer_id, order.orderer_phone, makeMsg(recipientName));
+    await upsertSms(order.recipient_id, recipientPhone, makeMsg(recipientName));
   }
 }
 
@@ -624,6 +631,13 @@ export default {
         await env.DB.prepare(
           `UPDATE orders SET tracking_no=?, updated_at=datetime('now','localtime') WHERE id=?`
         ).bind(formatted, id).run();
+        return json({ ok: true });
+      }
+
+      // ── 송장문자 예약 ──────────────────────────────────
+      if (path.match(/^\/api\/orders\/\d+\/delivery-sms$/) && method === 'POST') {
+        const id = path.split('/')[3];
+        await insertDeliverySms(env.DB, id);
         return json({ ok: true });
       }
 
