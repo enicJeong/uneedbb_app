@@ -175,6 +175,7 @@
     <div class="btn-row">
       <button class="btn btn-outline" id="btn-print">🖨 주문서 출력</button>
       <button class="btn btn-outline" id="btn-edit">✏️ 수정</button>
+      <button class="btn btn-outline" id="btn-copy">📋 복사</button>
     </div>
   </div>
 </div>
@@ -474,6 +475,10 @@ document.getElementById('btn-print').addEventListener('click', () => {
 
 document.getElementById('btn-edit').addEventListener('click', () => {
   window.location.href = `order-edit.html?id=${orderId}`;
+});
+
+document.getElementById('btn-copy').addEventListener('click', () => {
+  window.location.href = `order-new.html?copy_from=${orderId}`;
 });
 
 // ── SMS 토글 ──────────────────────────────────────────

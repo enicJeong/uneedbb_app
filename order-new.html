@@ -389,6 +389,71 @@ document.getElementById('btn-submit').addEventListener('click', async () => {
     btn.textContent = '주문 접수';
   }
 });
+
+// ── 주문 복사 (copy_from) ─────────────────────────────
+(async () => {
+  const copyId = new URLSearchParams(location.search).get('copy_from');
+  if (!copyId) return;
+
+  const res = await fetch(`${API}/api/orders/${copyId}`);
+  const src = await res.json();
+
+  // 주문자
+  orderer = { id: src.orderer_id, name: src.orderer_name, phone: src.orderer_phone };
+  document.getElementById('orderer-search-wrap').style.display = 'none';
+  renderSelectedCustomer('orderer-selected', orderer, () => {
+    orderer = null;
+    document.getElementById('orderer-search-wrap').style.display = '';
+    document.getElementById('orderer-selected').style.display = 'none';
+    document.getElementById('address-list').innerHTML = '';
+    selectedAddressId = null;
+  });
+
+  // 수령자
+  if (src.recipient_id) {
+    recipientSame = false;
+    recipient = { id: src.recipient_id, name: src.recipient_name, phone: src.recipient_phone };
+    document.getElementById('recip-same').classList.remove('active');
+    document.getElementById('recip-diff').classList.add('active');
+    document.getElementById('recipient-wrap').style.display = '';
+    document.getElementById('recipient-search-field').style.display = 'none';
+    renderSelectedCustomer('recipient-selected', recipient, () => {
+      recipient = null;
+      document.getElementById('recipient-search-field').style.display = '';
+      document.getElementById('recipient-selected').style.display = 'none';
+      refreshAddresses();
+    });
+  }
+
+  // 배송방법
+  deliveryType = src.delivery_type;
+  document.querySelectorAll('[data-delivery]').forEach(b => {
+    b.classList.toggle('active', b.dataset.delivery === deliveryType);
+  });
+  document.getElementById('address-wrap').style.display = deliveryType !== '현장수령' ? '' : 'none';
+
+  // 주소
+  await refreshAddresses();
+  if (src.address_id) {
+    selectedAddressId = src.address_id;
+    document.querySelectorAll('.addr-item').forEach(el => {
+      el.classList.toggle('selected', +el.dataset.id === src.address_id);
+    });
+  }
+
+  // 상품
+  items = src.items.map(i => ({ product: i.product, unit_price: i.unit_price, qty: i.qty }));
+  renderItems(items, () => { calcAmount(items); autoShipping(items, deliveryType); });
+  calcAmount(items);
+  autoShipping(items, deliveryType);
+
+  // 메모·우선순위
+  document.getElementById('memo').value = src.memo || '';
+  priority = src.priority || 3;
+  document.querySelectorAll('.priority-btn').forEach(b => {
+    b.classList.toggle('active', +b.dataset.p === priority);
+  });
+})();
 </script>
 </body>
 </html>
