@@ -80,10 +80,8 @@ async function insertDeliverySms(db, orderId) {
       `SELECT id, status FROM sms_queue WHERE order_id = ? AND phone = ?`
     ).bind(orderId, phone).first();
     if (dup) {
-      // 이미 발송된 건은 건드리지 않음
-      if (dup.status === 'sent') return;
       await db.prepare(
-        `UPDATE sms_queue SET message=?, updated_at=datetime('now','localtime') WHERE id=?`
+        `UPDATE sms_queue SET message=?, status='대기', updated_at=datetime('now','localtime') WHERE id=?`
       ).bind(message, dup.id).run();
     } else {
       await db.prepare(
@@ -92,13 +90,14 @@ async function insertDeliverySms(db, orderId) {
     }
   };
 
-  const sameRecipient = recipientPhone === order.orderer_phone;
+  const normalize = (p) => (p || '').replace(/[^0-9]/g, '');
+  const sameRecipient = !order.recipient_id || normalize(recipientPhone) === normalize(order.orderer_phone);
 
   if (sameRecipient) {
-    await upsertSms(order.orderer_id, recipientPhone, makeMsg(recipientName));
+    await upsertSms(order.orderer_id, normalize(order.orderer_phone), makeMsg(recipientName));
   } else {
-    await upsertSms(order.orderer_id, order.orderer_phone, makeMsg(recipientName));
-    await upsertSms(order.recipient_id, recipientPhone, makeMsg(recipientName));
+    await upsertSms(order.orderer_id, normalize(order.orderer_phone), makeMsg(recipientName));
+    await upsertSms(order.recipient_id, normalize(recipientPhone), makeMsg(recipientName));
   }
 }
 
@@ -575,7 +574,9 @@ export default {
         // 수령자 (없으면 주문자)
         const recipientName = order.recipient_name || order.orderer_name;
         const recipientPhone = order.recipient_phone || order.orderer_phone;
-        const orderDate = (order.created_at || '').slice(0, 10);
+        const rawDate = new Date(order.created_at || Date.now());
+        const dayNames = ['일','월','화','수','목','금','토'];
+        const orderDate = `${rawDate.getMonth()+1}월 ${rawDate.getDate()}일(${dayNames[rawDate.getDay()]})`;
 
         // SMS 메시지 생성
         const message = `${order.orderer_name}님이 > ${recipientName}님에게 주문하신 블루베리 ${qty}kg가 ${orderDate}에 택배 접수되었습니다.`;

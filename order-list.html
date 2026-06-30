@@ -169,6 +169,17 @@
   </div>
 </div>
 
+<!-- 진행 모달 -->
+<div id="progress-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:none;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:28px 32px;min-width:260px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.18)">
+    <div style="font-size:15px;font-weight:700;margin-bottom:16px" id="progress-title">처리 중...</div>
+    <div style="background:#f1f5f9;border-radius:99px;height:10px;overflow:hidden;margin-bottom:12px">
+      <div id="progress-bar" style="height:100%;background:#2563eb;border-radius:99px;transition:width 0.2s;width:0%"></div>
+    </div>
+    <div style="font-size:13px;color:#6b7280" id="progress-text">0 / 0</div>
+  </div>
+</div>
+
 <!-- 하단 플로팅 바 -->
 <div id="bulk-bar" class="hidden">
   <span class="bar-count" id="bar-count">0건 선택</span>
@@ -312,7 +323,7 @@ function renderOrders() {
       <div class="order-info">
         <span class="badge badge-${o.delivery_type}">${o.delivery_type}</span>
         ${o.address ? `<span>${o.address}</span>` : ''}
-        ${o.tracking_no ? `<a href="https://www.ilogen.com/m/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;font-size:12px;text-decoration:none" onclick="event.stopPropagation()">📦 ${o.tracking_no}</a><span style="font-size:11px;color:#6b7280;margin-left:4px">${(o.updated_at||'').slice(5,10)}</span>` : ''}
+        ${o.tracking_no ? `<a href="https://www.ilogen.com/web/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;font-size:12px;text-decoration:none" onclick="event.stopPropagation()">📦 ${o.tracking_no}</a><span style="font-size:11px;color:#6b7280;margin-left:4px">${(o.updated_at||'').slice(5,10)}</span>` : ''}
         <span class="order-amount">${o.total_amount.toLocaleString()}원</span>
       </div>
       ${o.memo ? `<div class="order-memo">${o.memo}</div>` : ''}`;
@@ -334,7 +345,7 @@ function renderOrders() {
         <input type="checkbox" class="sel-chk row-chk" data-id="${o.id}" data-status="${o.status}">
         <span class="row-sel-indicator"></span>
       </td>
-      <td class="order-no">${o.order_no || '#' + o.id}</td>
+      <td class="order-no"><a href="order-detail.html?id=${o.id}" style="color:inherit;text-decoration:none;font-weight:inherit" onclick="event.stopPropagation()">${o.order_no || '#' + o.id}</a></td>
       <td style="color:#9ca3af;white-space:nowrap">${date}</td>
       <td>
         <span class="badge badge-${o.status}">${o.status}</span>
@@ -359,7 +370,7 @@ function renderOrders() {
       <td class="addr-cell">${o.address || '-'}</td>
       <td style="white-space:nowrap;font-size:12px;color:#6b7280">
         ${o.tracking_no
-          ? `<a href="https://www.ilogen.com/m/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;text-decoration:none">${o.tracking_no}</a>`
+          ? `<a href="https://www.ilogen.com/web/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;text-decoration:none">${o.tracking_no}</a>`
           : ''}
       </td>
       <td style="text-align:center;white-space:nowrap">
@@ -541,15 +552,22 @@ async function bulkChangeStatus(direction) {
   const selected = getSelected();
   if (!selected.length) return;
 
-  const btn = direction === 'next' ? document.getElementById('btn-bulk-next') : document.getElementById('btn-bulk-prev');
-  btn.disabled = true;
-  btn.textContent = '처리 중...';
+  const modal    = document.getElementById('progress-modal');
+  const bar      = document.getElementById('progress-bar');
+  const text     = document.getElementById('progress-text');
+  const title    = document.getElementById('progress-title');
+  const total    = selected.length;
+
+  title.textContent = direction === 'next' ? '다음단계로 처리 중...' : '이전단계로 처리 중...';
+  bar.style.width = '0%';
+  text.textContent = `0 / ${total}`;
+  modal.style.display = 'flex';
 
   let ok = 0;
   for (const { id, status } of selected) {
     const idx = STATUSES.indexOf(status);
     const nextIdx = direction === 'next' ? idx + 1 : idx - 1;
-    if (nextIdx < 0 || nextIdx >= STATUSES.length) continue;
+    if (nextIdx < 0 || nextIdx >= STATUSES.length) { ok++; continue; }
     const newStatus = STATUSES[nextIdx];
     const smsOn = document.getElementById('list-sms-toggle').checked;
     const endpoint = (newStatus === '주문확정' && smsOn)
@@ -561,8 +579,11 @@ async function bulkChangeStatus(direction) {
       body: JSON.stringify({ status: newStatus }),
     });
     ok++;
+    bar.style.width = `${Math.round(ok / total * 100)}%`;
+    text.textContent = `${ok} / ${total}`;
   }
 
+  modal.style.display = 'none';
   showToast(`✅ ${ok}건 처리 완료`);
   document.getElementById('bulk-bar').classList.add('hidden');
   await loadOrders();

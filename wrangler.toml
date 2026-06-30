@@ -1,0 +1,8 @@
+name = "bb-api"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bb-db"
+database_id = "10026b63-38ef-4eae-8e59-e584c8eac216"

@@ -418,7 +418,7 @@ function updateTrackLink(val) {
   const smsBtn = document.getElementById('btn-sms-reserve');
   const digits = (val || '').replace(/[^0-9]/g, '');
   if (digits.length === 11) {
-    link.href = `https://www.ilogen.com/m/personal/trace/${digits}`;
+    link.href = `https://www.ilogen.com/web/personal/trace/${digits}`;
     link.style.display = '';
     smsBtn.style.display = '';
   } else {
