@@ -323,7 +323,7 @@ function renderOrders() {
       <div class="order-info">
         <span class="badge badge-${o.delivery_type}">${o.delivery_type}</span>
         ${o.address ? `<span>${o.address}</span>` : ''}
-        ${o.tracking_no ? `<a href="https://www.ilogen.com/web/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;font-size:12px;text-decoration:none" onclick="event.stopPropagation()">📦 ${o.tracking_no}</a><span style="font-size:11px;color:#6b7280;margin-left:4px">${(o.updated_at||'').slice(5,10)}</span>` : ''}
+        ${o.tracking_no ? `<a href="https://www.ilogen.com/web/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;font-size:12px;text-decoration:none" onclick="event.stopPropagation()">📦 ${o.tracking_no}</a><span style="font-size:11px;color:#6b7280;margin-left:4px">${(o.shipped_at||o.updated_at||'').slice(5,10)}</span>` : ''}
         <span class="order-amount">${o.total_amount.toLocaleString()}원</span>
       </div>
       ${o.memo ? `<div class="order-memo">${o.memo}</div>` : ''}`;

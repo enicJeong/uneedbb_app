@@ -123,6 +123,11 @@
       <button class="btn btn-primary" id="btn-save-tracking">저장</button>
       <a id="btn-track-link" href="#" target="_blank" class="btn" style="display:none;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;text-decoration:none">택배조회</a>
     </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+      <span style="font-size:12px;color:#6b7280">발송일</span>
+      <input type="date" id="shipped-at-input" style="font-size:13px;border:1px solid #d1d5db;border-radius:6px;padding:4px 8px">
+      <button class="btn" id="btn-save-shipped-at" style="font-size:12px;padding:4px 10px">저장</button>
+    </div>
     <button class="btn" id="btn-sms-reserve" style="display:none;margin-top:8px;background:#f0fdf4;color:#16a34a;border:1px solid #86efac">📨 송장문자 예약</button>
   </div>
 
@@ -377,6 +382,7 @@ function render() {
   document.getElementById('tracking-input').value = order.tracking_no || '';
   document.getElementById('tracking-card').style.display =
     order.delivery_type === '택배' ? '' : 'none';
+  document.getElementById('shipped-at-input').value = (order.shipped_at || '').slice(0, 10);
   updateTrackLink(order.tracking_no);
 
 }
@@ -438,11 +444,12 @@ document.getElementById('tracking-input').addEventListener('input', (e) => {
 document.getElementById('btn-save-tracking').addEventListener('click', async () => {
   let val = document.getElementById('tracking-input').value.trim();
   if (val) {
-    // 숫자만 추출
     const digits = val.replace(/[^0-9]/g, '');
-    if (digits.length === 11) {
-      val = `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7,11)}`;
+    if (digits.length !== 11) {
+      showToast('⚠️ 송장번호는 11자리 숫자여야 합니다');
+      return;
     }
+    val = `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7,11)}`;
     document.getElementById('tracking-input').value = val;
   }
   await fetch(`${API}/api/orders/${orderId}/tracking_no`, {
@@ -475,6 +482,16 @@ document.getElementById('btn-print').addEventListener('click', () => {
   document.getElementById('print-area').style.display = '';
   window.print();
   document.getElementById('print-area').style.display = 'none';
+});
+
+document.getElementById('btn-save-shipped-at').addEventListener('click', async () => {
+  const val = document.getElementById('shipped-at-input').value;
+  await fetch(`${API}/api/orders/${orderId}/shipped_at`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ shipped_at: val || null })
+  });
+  showToast('✅ 발송일 저장됨');
 });
 
 document.getElementById('btn-sms-reserve').addEventListener('click', async () => {

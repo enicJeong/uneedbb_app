@@ -88,6 +88,10 @@
             <button class="btn btn-outline" id="btn-geocode-search" style="white-space:nowrap;padding:7px 12px">🔍 검색</button>
           </div>
           <div id="geocode-results" style="display:none;margin-top:6px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;background:#fff"></div>
+          <div id="address-detail-wrap" style="display:none;margin-top:6px">
+            <div style="padding:7px 10px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;color:#374151;margin-bottom:6px" id="address-base-display"></div>
+            <input type="text" id="address-detail-input" placeholder="동/호수 등 세부주소 입력" style="width:100%;margin-bottom:6px">
+          </div>
           <button class="btn-add-dashed" id="btn-add-address" style="margin-top:6px;display:none">+ 이 주소로 등록</button>
         </div>
       </div>
@@ -326,8 +330,11 @@ async function runGeocodeSearch() {
     item.addEventListener('click', () => {
       const a = list[+item.dataset.idx];
       geocodedAddress = a.roadAddress || a.jibunAddress;
-      document.getElementById('new-address-input').value = geocodedAddress;
       resultsEl.style.display = 'none';
+      document.getElementById('address-base-display').textContent = geocodedAddress;
+      document.getElementById('address-detail-wrap').style.display = '';
+      document.getElementById('address-detail-input').value = '';
+      document.getElementById('address-detail-input').focus();
       addBtn.style.display = '';
     });
   });
@@ -340,7 +347,8 @@ document.getElementById('new-address-input').addEventListener('keydown', e => {
 
 // ── 주소 추가 ─────────────────────────────────────────
 document.getElementById('btn-add-address').addEventListener('click', async () => {
-  const val = document.getElementById('new-address-input').value.trim() || geocodedAddress;
+  const detail = document.getElementById('address-detail-input').value.trim();
+  const val = geocodedAddress ? (detail ? geocodedAddress + ' ' + detail : geocodedAddress) : '';
   if (!val || !orderer) { showToast('주문자를 먼저 선택하세요'); return; }
   await fetch(`${API}/api/addresses`, {
     method: 'POST',
@@ -348,6 +356,8 @@ document.getElementById('btn-add-address').addEventListener('click', async () =>
     body: JSON.stringify({ customer_id: orderer.id, address: val, is_default: 0 })
   });
   document.getElementById('new-address-input').value = '';
+  document.getElementById('address-detail-input').value = '';
+  document.getElementById('address-detail-wrap').style.display = 'none';
   document.getElementById('btn-add-address').style.display = 'none';
   geocodedAddress = null;
   await loadAddresses(orderer.id, (id) => { selectedAddressId = id; });

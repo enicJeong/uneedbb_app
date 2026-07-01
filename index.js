@@ -298,7 +298,7 @@ export default {
           SELECT o.*,
             c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
             r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
-            a.address,
+            COALESCE(o.address_snapshot, a.address) AS address,
             (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS total_qty,
             (SELECT GROUP_CONCAT(product || '*' || qty, ', ') FROM order_items WHERE order_id = o.id) AS items_summary,
             (SELECT json_group_array(json_object('product', product, 'qty', qty, 'unit_price', unit_price)) FROM order_items WHERE order_id = o.id) AS items_json
@@ -363,7 +363,7 @@ export default {
               SELECT o.*,
                 c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
                 r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
-                a.address,
+                COALESCE(o.address_snapshot, a.address) AS address,
                 (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS total_qty,
                 (SELECT GROUP_CONCAT(product || '*' || qty, ', ') FROM order_items WHERE order_id = o.id) AS items_summary,
                 (SELECT COALESCE(SUM(amount),0) FROM cash_payments WHERE order_id = o.id) AS cash_amount
@@ -378,7 +378,7 @@ export default {
               SELECT o.*,
                 c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
                 r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
-                a.address,
+                COALESCE(o.address_snapshot, a.address) AS address,
                 (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS total_qty,
                 (SELECT GROUP_CONCAT(product || '*' || qty, ', ') FROM order_items WHERE order_id = o.id) AS items_summary,
                 (SELECT COALESCE(SUM(amount),0) FROM cash_payments WHERE order_id = o.id) AS cash_amount
@@ -400,7 +400,7 @@ export default {
           SELECT o.*,
             c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
             r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
-            a.address
+            COALESCE(o.address_snapshot, a.address) AS address
           FROM orders o
           LEFT JOIN customers c ON o.orderer_id  = c.id
           LEFT JOIN customers r ON o.recipient_id = r.id
@@ -429,14 +429,19 @@ export default {
         const total_amount = items.reduce((s, i) => s + i.unit_price * i.qty, 0) + (shipping_fee || 0);
         const created_at = b.created_at || new Date().toISOString().slice(0, 10);
 
+        const addrRow = address_id
+          ? await env.DB.prepare(`SELECT address FROM addresses WHERE id=?`).bind(address_id).first()
+          : null;
+        const address_snapshot = addrRow?.address || null;
+
         const order = await env.DB.prepare(`
           INSERT INTO orders
-            (order_no, orderer_id, recipient_id, address_id, delivery_type,
+            (order_no, orderer_id, recipient_id, address_id, address_snapshot, delivery_type,
              status, payment_status, total_amount, shipping_fee, priority, memo, created_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
         `).bind(
           order_no,
-          orderer_id, recipient_id || null, address_id || null,
+          orderer_id, recipient_id || null, address_id || null, address_snapshot,
           delivery_type, '주문입력', '미수',
           total_amount, shipping_fee || 0,
           priority || 3, memo || '',
@@ -458,7 +463,7 @@ export default {
           SELECT o.*,
             c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
             r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
-            a.address
+            COALESCE(o.address_snapshot, a.address) AS address
           FROM orders o
           LEFT JOIN customers c ON o.orderer_id  = c.id
           LEFT JOIN customers r ON o.recipient_id = r.id
@@ -489,9 +494,14 @@ export default {
           ? items.reduce((s, i) => s + i.unit_price * i.qty, 0) + (shipping_fee || 0)
           : undefined;
 
+        const addrRowPut = address_id
+          ? await env.DB.prepare(`SELECT address FROM addresses WHERE id=?`).bind(address_id).first()
+          : null;
+        const address_snapshot = addrRowPut?.address || null;
+
         await env.DB.prepare(`
           UPDATE orders SET
-            order_no=?, orderer_id=?, recipient_id=?, address_id=?,
+            order_no=?, orderer_id=?, recipient_id=?, address_id=?, address_snapshot=?,
             delivery_type=?, priority=?, memo=?,
             shipping_fee=?, total_amount=?,
             status=?, payment_status=?,
@@ -499,7 +509,7 @@ export default {
           WHERE id=?
         `).bind(
           b.order_no?.trim() || null,
-          orderer_id, recipient_id || null, address_id || null,
+          orderer_id, recipient_id || null, address_id || null, address_snapshot,
           delivery_type, priority || 3, memo || '',
           shipping_fee || 0, total_amount || 0,
           status || '주문입력', payment_status || '미수',
@@ -621,16 +631,27 @@ export default {
         return json({ ok: true });
       }
 
+      // ── 발송일 수정 ────────────────────────────────────
+      if (path.match(/^\/api\/orders\/\d+\/shipped_at$/) && method === 'PUT') {
+        const id = path.split('/')[3];
+        const { shipped_at } = await request.json();
+        await env.DB.prepare(
+          `UPDATE orders SET shipped_at=?, updated_at=datetime('now','localtime') WHERE id=?`
+        ).bind(shipped_at || null, id).run();
+        return json({ ok: true });
+      }
+
       // ── 송장번호 저장 ──────────────────────────────────
       if (path.match(/^\/api\/orders\/\d+\/tracking_no$/) && method === 'PUT') {
         const id = path.split('/')[3];
         const { tracking_no } = await request.json();
         const digits = (tracking_no || '').replace(/[^0-9]/g, '');
+        if (tracking_no && digits.length !== 11) return err('송장번호는 11자리 숫자여야 합니다');
         const formatted = digits.length === 11
           ? `${digits.slice(0,3)}-${digits.slice(3,7)}-${digits.slice(7,11)}`
-          : tracking_no || '';
+          : '';
         await env.DB.prepare(
-          `UPDATE orders SET tracking_no=?, updated_at=datetime('now','localtime') WHERE id=?`
+          `UPDATE orders SET tracking_no=?, shipped_at=DATE('now','localtime'), updated_at=datetime('now','localtime') WHERE id=?`
         ).bind(formatted, id).run();
         return json({ ok: true });
       }
