@@ -153,6 +153,7 @@ let recipient = null;
 let recipientSame = true;
 let deliveryType = '택배';
 let selectedAddressId = null;
+let activeAddressCustomerId = null;
 let priority = 3;
 let items = [];
 
@@ -349,18 +350,18 @@ document.getElementById('new-address-input').addEventListener('keydown', e => {
 document.getElementById('btn-add-address').addEventListener('click', async () => {
   const detail = document.getElementById('address-detail-input').value.trim();
   const val = geocodedAddress ? (detail ? geocodedAddress + ' ' + detail : geocodedAddress) : '';
-  if (!val || !orderer) { showToast('주문자를 먼저 선택하세요'); return; }
+  if (!val || !activeAddressCustomerId) { showToast('주문자 또는 수령자를 먼저 선택하세요'); return; }
   await fetch(`${API}/api/addresses`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ customer_id: orderer.id, address: val, is_default: 0 })
+    body: JSON.stringify({ customer_id: activeAddressCustomerId, address: val, is_default: 0 })
   });
   document.getElementById('new-address-input').value = '';
   document.getElementById('address-detail-input').value = '';
   document.getElementById('address-detail-wrap').style.display = 'none';
   document.getElementById('btn-add-address').style.display = 'none';
   geocodedAddress = null;
-  await loadAddresses(orderer.id, (id) => { selectedAddressId = id; });
+  await loadAddresses(activeAddressCustomerId, (id) => { selectedAddressId = id; });
   showToast('주소 추가됨');
 });
 

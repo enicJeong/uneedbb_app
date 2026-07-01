@@ -244,7 +244,7 @@ function itemBadges(summary) {
     summary.split(', ').map(part => {
       const [name, qty] = part.split('*');
       const c = getProductColor(name || part);
-      return `<span class="item-badge" style="background:${c.bg};border:1px solid ${c.border};color:${c.text}">${name || part}${qty ? ` <span class="qty" style="background:${c.qty}">${qty}</span>` : ''}</span>`;
+      return `<span class="item-badge" style="background:${c.bg};border:1px solid ${c.border};color:${c.text}">${name || part}${qty ? ` <span class="qty" style="background:${c.border};color:#111">${qty}</span>` : ''}</span>`;
     }).join('') +
   '</div>';
 }
@@ -370,7 +370,7 @@ function renderOrders() {
       <td class="addr-cell">${o.address || '-'}</td>
       <td style="white-space:nowrap;font-size:12px;color:#6b7280">
         ${o.tracking_no
-          ? `<a href="https://www.ilogen.com/web/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;text-decoration:none">${o.tracking_no}</a>`
+          ? `<a href="https://www.ilogen.com/web/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;text-decoration:none">${o.tracking_no}</a><div style="font-size:11px;color:#9ca3af;margin-top:2px">${(o.shipped_at||'').slice(5,10)}</div>`
           : ''}
       </td>
       <td style="text-align:center;white-space:nowrap">
