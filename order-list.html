@@ -126,6 +126,11 @@
     <button class="filter-btn" data-filter="배송완료">배송완료</button>
     <button class="filter-btn" data-filter="수금완료">수금완료</button>
   </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+    <span style="font-size:12px;color:#6b7280;font-weight:600">발송일</span>
+    <input type="date" id="shipped-date-filter" style="border:1px solid #d1d5db;border-radius:6px;padding:4px 8px;font-size:13px;color:#111">
+    <button id="shipped-date-clear" style="font-size:12px;color:#6b7280;background:none;border:none;cursor:pointer;padding:2px 6px">✕ 초기화</button>
+  </div>
 
   <div class="search-row">
     <div style="display:flex;gap:0;border:2px solid #111;border-radius:8px;overflow:hidden;flex-shrink:0">
@@ -207,6 +212,18 @@ let allOrders = [];
 let currentFilter = '';
 let rowMode = 'select'; // 'select' | 'detail'
 let searchQuery = '';
+let shippedDateFilter = ''; // 'YYYY-MM-DD'
+
+const DAY_NAMES = ['일','월','화','수','목','금','토'];
+function fmtDate(str) {
+  if (!str) return '';
+  const d = new Date(str);
+  if (isNaN(d)) return str.slice(5,10);
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  const ddd = DAY_NAMES[d.getDay()];
+  return `${mm}.${dd}(${ddd})`;
+}
 
 async function loadOrders() {
   const res = await fetch(`${API}/api/orders`);
@@ -261,6 +278,9 @@ function getFiltered() {
   let list = currentFilter === '수금완료'
     ? allOrders.filter(o => o.payment_status === '수금완료' || o.status === '수금완료')
     : currentFilter ? allOrders.filter(o => o.status === currentFilter && o.payment_status !== '수금완료') : allOrders;
+  if (shippedDateFilter) {
+    list = list.filter(o => (o.shipped_at || '').slice(0,10) === shippedDateFilter);
+  }
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     list = list.filter(o => [
@@ -308,10 +328,9 @@ function renderOrders() {
     card.className = `order-card status-${o.status}`;
     const recipientText = o.recipient_name ? `<span class="recipient">→ ${o.recipient_name}</span>` : '';
     const priorityClass = o.priority <= 2 ? ' high' : '';
-    const date = (o.created_at || '').slice(2, 10);
     card.innerHTML = `
       <div class="order-top">
-        <span class="order-id">${o.order_no || '#' + o.id} · ${date}</span>
+        <span class="order-id">${o.order_no || '#' + o.id} · <span style="color:#111">${fmtDate(o.created_at)}</span></span>
         <div class="badges">
           <span class="badge badge-p${priorityClass}">P${o.priority}</span>
           <span class="badge badge-${o.status}">${o.status}</span>
@@ -323,7 +342,7 @@ function renderOrders() {
       <div class="order-info">
         <span class="badge badge-${o.delivery_type}">${o.delivery_type}</span>
         ${o.address ? `<span>${o.address}</span>` : ''}
-        ${o.tracking_no ? `<a href="https://www.ilogen.com/web/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;font-size:12px;text-decoration:none" onclick="event.stopPropagation()">📦 ${o.tracking_no}</a><span style="font-size:11px;color:#6b7280;margin-left:4px">${(o.shipped_at||o.updated_at||'').slice(5,10)}</span>` : ''}
+        ${o.tracking_no ? `<a href="https://www.ilogen.com/web/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;font-size:12px;text-decoration:none" onclick="event.stopPropagation()">📦 ${o.tracking_no}</a><span style="font-size:11px;color:#111;margin-left:4px">${fmtDate(o.shipped_at)}</span>` : ''}
         <span class="order-amount">${o.total_amount.toLocaleString()}원</span>
       </div>
       ${o.memo ? `<div class="order-memo">${o.memo}</div>` : ''}`;
@@ -335,7 +354,6 @@ function renderOrders() {
   const tbody = document.getElementById('desktop-tbody');
   tbody.innerHTML = '';
   filtered.forEach(o => {
-    const date = (o.created_at || '').slice(2, 10);
     const priorityClass = o.priority <= 2 ? ' high' : '';
     const printed = !!o.printed_at;
     const tr = document.createElement('tr');
@@ -346,7 +364,7 @@ function renderOrders() {
         <span class="row-sel-indicator"></span>
       </td>
       <td class="order-no"><a href="order-detail.html?id=${o.id}" style="color:inherit;text-decoration:none;font-weight:inherit" onclick="event.stopPropagation()">${o.order_no || '#' + o.id}</a></td>
-      <td style="color:#9ca3af;white-space:nowrap">${date}</td>
+      <td style="color:#111;white-space:nowrap;font-size:12px">${fmtDate(o.created_at)}</td>
       <td>
         <span class="badge badge-${o.status}">${o.status}</span>
         ${o.payment_status === '수금완료' ? `<br><span class="badge" style="background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;margin-top:3px">💰 수금</span>` : ''}
@@ -368,9 +386,9 @@ function renderOrders() {
       <td>${itemBadges(o.items_summary)}</td>
       <td><span class="badge badge-${o.delivery_type}">${o.delivery_type}</span></td>
       <td class="addr-cell">${o.address || '-'}</td>
-      <td style="white-space:nowrap;font-size:12px;color:#6b7280">
+      <td style="white-space:nowrap;font-size:12px">
         ${o.tracking_no
-          ? `<a href="https://www.ilogen.com/web/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;text-decoration:none">${o.tracking_no}</a><div style="font-size:11px;color:#9ca3af;margin-top:2px">${(o.shipped_at||'').slice(5,10)}</div>`
+          ? `<a href="https://www.ilogen.com/web/personal/trace/${o.tracking_no.replace(/-/g,'')}" target="_blank" style="color:#2563eb;text-decoration:none">${o.tracking_no}</a><div style="font-size:11px;color:#111;margin-top:2px">${fmtDate(o.shipped_at)}</div>`
           : ''}
       </td>
       <td style="text-align:center;white-space:nowrap">
@@ -423,6 +441,16 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     currentFilter = btn.dataset.filter;
     renderOrders();
   });
+});
+
+document.getElementById('shipped-date-filter').addEventListener('change', e => {
+  shippedDateFilter = e.target.value;
+  renderOrders();
+});
+document.getElementById('shipped-date-clear').addEventListener('click', () => {
+  shippedDateFilter = '';
+  document.getElementById('shipped-date-filter').value = '';
+  renderOrders();
 });
 
 // ── 검색 ─────────────────────────────────────────────
