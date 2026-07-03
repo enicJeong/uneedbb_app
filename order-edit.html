@@ -349,7 +349,7 @@ document.getElementById('new-address-input').addEventListener('keydown', e => {
 // ── 주소 추가 ─────────────────────────────────────────
 document.getElementById('btn-add-address').addEventListener('click', async () => {
   const detail = document.getElementById('address-detail-input').value.trim();
-  const val = geocodedAddress ? (detail ? geocodedAddress + ' ' + detail : geocodedAddress) : '';
+  const val = geocodedAddress ? (detail ? geocodedAddress + ', ' + detail : geocodedAddress) : '';
   if (!val || !activeAddressCustomerId) { showToast('주문자 또는 수령자를 먼저 선택하세요'); return; }
   await fetch(`${API}/api/addresses`, {
     method: 'POST',
