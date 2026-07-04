@@ -118,9 +118,9 @@ export default {
         const qn = normalizePhone(q);
         if (!q && synced === null) return json([]);
         const syncedCond = synced === '1'
-          ? `AND (google_resource_name IS NOT NULL AND google_resource_name != '')`
+          ? `AND (c.google_resource_name IS NOT NULL AND c.google_resource_name != '')`
           : synced === '0'
-          ? `AND (google_resource_name IS NULL OR google_resource_name = '')`
+          ? `AND (c.google_resource_name IS NULL OR c.google_resource_name = '')`
           : '';
         let rows;
         if (q) {
@@ -146,7 +146,8 @@ export default {
         } else {
           const offset = parseInt(url.searchParams.get('offset') || '0');
           rows = await env.DB.prepare(
-            `SELECT c.id, c.name, c.phone, c.memo, c.related_customer_id, rc.name AS related_name, c.synced_at, c.google_resource_name
+            `SELECT c.id, c.name, c.phone, c.memo, c.related_customer_id, rc.name AS related_name, c.synced_at, c.google_resource_name,
+                    (SELECT a2.address FROM addresses a2 WHERE a2.customer_id = c.id ORDER BY a2.is_default DESC, a2.id DESC LIMIT 1) AS address
              FROM customers c LEFT JOIN customers rc ON rc.id = c.related_customer_id
              WHERE 1=1 ${syncedCond} ORDER BY c.id LIMIT 500 OFFSET ?`
           ).bind(offset).all();

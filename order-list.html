@@ -508,7 +508,7 @@ document.getElementById('btn-dl-excel').addEventListener('click', () => {
   if (!filtered.length) { showToast('다운로드할 데이터가 없습니다'); return; }
 
   const label = currentFilter || '전체';
-  const header = ['주문번호','접수일','진행','주문자','주문자전화','메모','수령자','수령자전화','배송방법','주소','택배송장','배송일','청구금액','수금','P'];
+  const header = ['주문번호','접수일','진행','주문자','주문자전화','메모','수령자','수령자전화','배송방법','주소','품목','수량','택배송장','배송일','청구금액','수금','P'];
   const dataRows = filtered.map(o => [
     o.order_no || '',
     (o.created_at || '').slice(0, 10),
@@ -520,6 +520,8 @@ document.getElementById('btn-dl-excel').addEventListener('click', () => {
     o.recipient_phone || '',
     o.delivery_type || '',
     o.address || '',
+    o.items_summary || '',
+    o.total_qty || '',
     o.tracking_no || '',
     o.tracking_no ? (o.updated_at || '').slice(0, 10) : '',
     o.total_amount || 0,
@@ -529,7 +531,7 @@ document.getElementById('btn-dl-excel').addEventListener('click', () => {
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([header, ...dataRows]);
-  ws['!cols'] = [10,10,8,10,12,12,10,12,8,20,14,10,8,4].map(w => ({ wch: w }));
+  ws['!cols'] = [10,10,8,10,12,12,10,12,8,20,16,6,14,10,8,4].map(w => ({ wch: w }));
   XLSX.utils.book_append_sheet(wb, ws, label);
   XLSX.writeFile(wb, `주문목록_${label}_${new Date().toISOString().slice(0,10)}.xlsx`);
   showToast(`✅ ${filtered.length}건 엑셀 저장됨`);

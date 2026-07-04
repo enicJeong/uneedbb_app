@@ -86,6 +86,18 @@
   <div id="customer-list"></div>
 </div>
 
+<!-- 구글 동기화 진행 모달 -->
+<div id="sync-modal-bg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:28px 32px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.18);text-align:center">
+    <div style="font-size:16px;font-weight:700;margin-bottom:16px" id="sync-modal-title">🔄 Google 동기화 중...</div>
+    <div style="background:#f1f5f9;border-radius:8px;height:10px;overflow:hidden;margin-bottom:12px">
+      <div id="sync-progress-bar" style="height:100%;background:#2563eb;transition:width .3s;width:0%"></div>
+    </div>
+    <div style="font-size:13px;color:#6b7280" id="sync-modal-status">준비 중...</div>
+    <div style="font-size:12px;color:#9ca3af;margin-top:6px" id="sync-modal-count"></div>
+  </div>
+</div>
+
 <!-- 모달 -->
 <div class="modal-bg" id="modal-bg"></div>
 <div class="modal" id="modal">
@@ -203,13 +215,26 @@ async function fetchAllCustomers() {
 
 document.getElementById('btn-sync-google').addEventListener('click', async () => {
   if (!accessToken) { showToast('Google 먼저 연결하세요'); return; }
-  showToast('미동기화 고객 불러오는 중...');
+
   const res = await fetch(`${API}/api/customers?synced=0&offset=0`);
   const syncTargets = await res.json();
   if (!syncTargets.length) { showToast('✅ 모두 동기화되어 있습니다'); return; }
-  showToast(`Google 동기화 중... (${syncTargets.length}명)`);
+
+  const total = syncTargets.length;
+  const bg = document.getElementById('sync-modal-bg');
+  const bar = document.getElementById('sync-progress-bar');
+  const statusEl = document.getElementById('sync-modal-status');
+  const countEl = document.getElementById('sync-modal-count');
+  document.getElementById('sync-modal-title').textContent = '🔄 Google 동기화 중...';
+  bg.style.display = 'flex';
+
   let created = 0, updated = 0, fail = 0;
-  for (const c of syncTargets) {
+  for (let i = 0; i < syncTargets.length; i++) {
+    const c = syncTargets[i];
+    statusEl.textContent = c.name;
+    countEl.textContent = `${i + 1} / ${total}`;
+    bar.style.width = `${Math.round((i / total) * 100)}%`;
+
     if (c.google_resource_name) {
       await updateGoogleContact(c.google_resource_name, c.name, c.phone, c.memo);
       updated++;
@@ -225,7 +250,12 @@ document.getElementById('btn-sync-google').addEventListener('click', async () =>
       } else { fail++; }
     }
   }
-  showToast(`✅ 완료 — 신규 ${created} / 업데이트 ${updated}${fail ? ' / 실패 ' + fail : ''}`);
+
+  bar.style.width = '100%';
+  document.getElementById('sync-modal-title').textContent = '✅ 동기화 완료';
+  statusEl.textContent = `신규 ${created}명 / 업데이트 ${updated}명${fail ? ` / 실패 ${fail}명` : ''}`;
+  countEl.textContent = '';
+  setTimeout(() => { bg.style.display = 'none'; }, 2000);
   loadCustomers();
 });
 
