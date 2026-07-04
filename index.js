@@ -293,8 +293,9 @@ export default {
 
       // ── 송장출력용 목록 (수량 포함) ────────────────────
       if (path === '/api/orders/export' && method === 'GET') {
-        const status = url.searchParams.get('status') || '송장출력';
-        const rows = await env.DB.prepare(`
+        const orderId = url.searchParams.get('order_id');
+        const status  = url.searchParams.get('status') || '주문확정';
+        const exportSql = `
           SELECT o.*,
             c.name  AS orderer_name,  c.phone  AS orderer_phone,  c.memo AS orderer_memo,
             r.name  AS recipient_name, r.phone AS recipient_phone, r.memo AS recipient_memo,
@@ -305,10 +306,12 @@ export default {
           FROM orders o
           LEFT JOIN customers c ON o.orderer_id  = c.id
           LEFT JOIN customers r ON o.recipient_id = r.id
-          LEFT JOIN addresses a ON o.address_id   = a.id
-          WHERE o.status = ? AND o.status != '삭제'
-          ORDER BY o.order_no ASC
-        `).bind(status).all();
+          LEFT JOIN addresses a ON o.address_id   = a.id`;
+        if (orderId) {
+          const row = await env.DB.prepare(`${exportSql} WHERE o.id = ? AND o.status != '삭제'`).bind(orderId).first();
+          return json(row ? [row] : []);
+        }
+        const rows = await env.DB.prepare(`${exportSql} WHERE o.status = ? AND o.status != '삭제' AND o.printed_at IS NULL ORDER BY o.order_no ASC`).bind(status).all();
         return json(rows.results);
       }
 

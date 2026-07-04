@@ -461,27 +461,20 @@ document.getElementById('btn-save-tracking').addEventListener('click', async () 
   await loadOrder();
 });
 
-document.getElementById('btn-print').addEventListener('click', () => {
-  const items = (order.items || []).map(i =>
-    `<div class="print-row"><span class="pl">${i.product} × ${i.qty}</span><span class="pv">${(i.unit_price * i.qty).toLocaleString()}원</span></div>`
-  ).join('');
-  const trackings = order.tracking_no
-    ? `<div class="print-tracking">송장번호: ${order.tracking_no}</div>`
-    : '';
-  document.getElementById('print-content').innerHTML = `
-    <div class="print-row"><span class="pl">주문번호</span><span class="pv">${order.order_no || '#' + order.id}</span></div>
-    <div class="print-row"><span class="pl">주문자</span><span class="pv">${order.orderer_name} ${formatPhone(order.orderer_phone)}</span></div>
-    <div class="print-row"><span class="pl">수령자</span><span class="pv">${order.recipient_name || order.orderer_name} ${formatPhone(order.recipient_phone || order.orderer_phone)}</span></div>
-    <div class="print-row"><span class="pl">배송방법</span><span class="pv">${order.delivery_type}</span></div>
-    ${order.address ? `<div class="print-row"><span class="pl">주소</span><span class="pv">${order.address}</span></div>` : ''}
-    <div class="print-items">${items}</div>
-    <div class="print-row"><span class="pl">택배비</span><span class="pv">${order.shipping_fee.toLocaleString()}원</span></div>
-    <div class="print-total">청구금액 ${order.total_amount.toLocaleString()}원</div>
-    ${order.memo ? `<div class="print-memo">📝 ${order.memo}</div>` : ''}
-    ${trackings}`;
-  document.getElementById('print-area').style.display = '';
-  window.print();
-  document.getElementById('print-area').style.display = 'none';
+document.getElementById('btn-print').addEventListener('click', async () => {
+  const NEMONIC = 'https://nemonic.uneedbb.kr';
+  try {
+    const res = await fetch(`${NEMONIC}/trigger?order_id=${orderId}`);
+    const data = await res.json();
+    if (data.status === 'started') {
+      showToast('✅ 출력 시작됨');
+      setTimeout(loadOrder, 2000);
+    } else {
+      alert(`⚠️ ${data.message || data.status}`);
+    }
+  } catch {
+    alert('❌ 연결 실패 — 네모닉 서버 또는 터널 상태를 확인하세요');
+  }
 });
 
 document.getElementById('btn-save-shipped-at').addEventListener('click', async () => {
