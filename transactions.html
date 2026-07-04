@@ -489,7 +489,8 @@ async function searchOrders() {
   const q = document.getElementById('order-search').value.trim();
   if (!q) return;
   const res = await fetch(`${API}/api/orders?name=${encodeURIComponent(q)}&limit=20`);
-  const orders = await res.json();
+  const all = await res.json();
+  const orders = all.filter(o => o.payment_status !== '수금완료' && o.status !== '삭제');
   const result = document.getElementById('order-result');
   if (!orders.length) { result.innerHTML = '<div style="padding:10px;font-size:13px;color:#9ca3af">결과 없음</div>'; return; }
   result.innerHTML = orders.map(o => `
