@@ -750,6 +750,19 @@ export default {
         return json({ ok: true });
       }
 
+      // ── 출력 진행상황 ──────────────────────────────────
+      if (path === '/api/print-job' && method === 'GET') {
+        const job = await env.DB.prepare(`SELECT * FROM print_job WHERE id=1`).first();
+        return json(job || { status: 'idle', total: 0, done: 0 });
+      }
+      if (path === '/api/print-job' && method === 'POST') {
+        const { status, total, done, current_order, errors } = await request.json();
+        await env.DB.prepare(`
+          UPDATE print_job SET status=?, total=?, done=?, current_order=?, errors=?, updated_at=datetime('now','localtime') WHERE id=1
+        `).bind(status, total ?? 0, done ?? 0, current_order ?? null, JSON.stringify(errors ?? [])).run();
+        return json({ ok: true });
+      }
+
       // ── 주소 Geocoding (Naver) ────────────────────────
       if (path === '/api/geocode' && method === 'GET') {
         const query = url.searchParams.get('query') || '';

@@ -168,6 +168,18 @@
     </table>
   </div>
 
+  <!-- 출력 진행 모달 -->
+  <div id="print-progress-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:none;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:14px;padding:28px 32px;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,.2);text-align:center">
+      <div style="font-size:15px;font-weight:700;margin-bottom:16px" id="print-progress-title">🖨 출력 중...</div>
+      <div style="background:#f3f4f6;border-radius:8px;height:10px;overflow:hidden;margin-bottom:12px">
+        <div id="print-progress-bar" style="height:100%;background:#111;border-radius:8px;transition:width .3s;width:0%"></div>
+      </div>
+      <div style="font-size:13px;color:#6b7280" id="print-progress-text">준비 중...</div>
+      <button id="print-progress-close" style="display:none;margin-top:16px;padding:6px 20px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-size:13px">닫기</button>
+    </div>
+  </div>
+
   <div id="empty-msg" style="display:none" class="empty">해당하는 주문이 없습니다</div>
   <div id="order-footer">
     현재 주문 <span id="footer-count">0</span>건 &nbsp;·&nbsp; 수량 합계 <span id="footer-qty">0</span>kg
@@ -496,11 +508,67 @@ document.getElementById('btn-dl-excel').addEventListener('click', () => {
   showToast(`✅ ${filtered.length}건 엑셀 저장됨`);
 });
 
+let _printPollTimer = null;
+
+function showPrintModal() {
+  const modal = document.getElementById('print-progress-modal');
+  modal.style.display = 'flex';
+  document.getElementById('print-progress-close').style.display = 'none';
+  document.getElementById('print-progress-bar').style.width = '0%';
+  document.getElementById('print-progress-text').textContent = '준비 중...';
+  document.getElementById('print-progress-title').textContent = '🖨 출력 중...';
+}
+
+function stopPrintPoll() {
+  if (_printPollTimer) { clearInterval(_printPollTimer); _printPollTimer = null; }
+}
+
+async function pollPrintJob() {
+  try {
+    const job = await fetch(`${API}/api/print-job`).then(r => r.json());
+    const pct = job.total > 0 ? Math.round((job.done / job.total) * 100) : 0;
+    document.getElementById('print-progress-bar').style.width = pct + '%';
+
+    if (job.status === 'running') {
+      document.getElementById('print-progress-text').textContent =
+        `${job.done}/${job.total}건 완료${job.current_order ? ` — ${job.current_order} 출력 중` : ''}`;
+    } else if (job.status === 'done') {
+      stopPrintPoll();
+      const errors = JSON.parse(job.errors || '[]');
+      document.getElementById('print-progress-title').textContent = '✅ 출력 완료';
+      document.getElementById('print-progress-bar').style.width = '100%';
+      document.getElementById('print-progress-text').textContent =
+        errors.length ? `${job.done}건 완료, ❌ 실패: ${errors.join(', ')}` : `${job.done}건 모두 완료`;
+      document.getElementById('print-progress-close').style.display = '';
+      loadOrders();
+    } else if (job.status === 'error') {
+      stopPrintPoll();
+      document.getElementById('print-progress-title').textContent = '❌ 출력 오류';
+      document.getElementById('print-progress-text').textContent = JSON.parse(job.errors || '[]')[0] || '알 수 없는 오류';
+      document.getElementById('print-progress-close').style.display = '';
+    }
+  } catch (e) { /* 무시 */ }
+}
+
+document.getElementById('print-progress-close').addEventListener('click', () => {
+  document.getElementById('print-progress-modal').style.display = 'none';
+  stopPrintPoll();
+});
+
 document.getElementById('btn-nemonic').addEventListener('click', async () => {
   try {
     const res = await fetch('https://nemonic.uneedbb.kr/trigger');
     const data = await res.json();
-    alert(data.status === 'started' ? '✅ 네모닉 출력 시작됨' : `⚠️ ${data.message || data.status}`);
+    if (data.status === 'started') {
+      showPrintModal();
+      stopPrintPoll();
+      _printPollTimer = setInterval(pollPrintJob, 1500);
+    } else if (data.status === 'busy') {
+      showPrintModal();
+      _printPollTimer = setInterval(pollPrintJob, 1500);
+    } else {
+      alert(`⚠️ ${data.message || data.status}`);
+    }
   } catch (e) {
     alert('❌ 연결 실패 — 네모닉 서버 또는 터널 상태를 확인하세요');
   }

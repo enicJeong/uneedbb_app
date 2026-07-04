@@ -467,8 +467,22 @@ document.getElementById('btn-print').addEventListener('click', async () => {
     const res = await fetch(`${NEMONIC}/trigger?order_id=${orderId}`);
     const data = await res.json();
     if (data.status === 'started') {
-      showToast('✅ 출력 시작됨');
-      setTimeout(loadOrder, 2000);
+      showToast('🖨 출력 중...');
+      const poll = setInterval(async () => {
+        try {
+          const job = await fetch(`${API}/api/print-job`).then(r => r.json());
+          if (job.status === 'done') {
+            clearInterval(poll);
+            showToast('✅ 출력 완료');
+            loadOrder();
+          } else if (job.status === 'error') {
+            clearInterval(poll);
+            const errs = JSON.parse(job.errors || '[]');
+            showToast(`❌ 출력 오류: ${errs[0] || '알 수 없는 오류'}`);
+          }
+        } catch { clearInterval(poll); }
+      }, 1500);
+      setTimeout(() => clearInterval(poll), 60000);
     } else {
       alert(`⚠️ ${data.message || data.status}`);
     }
