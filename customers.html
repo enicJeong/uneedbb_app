@@ -100,6 +100,14 @@
     <input type="text" id="m-phone" placeholder="01012345678">
   </div>
   <div class="field">
+    <label>관계자</label>
+    <div style="position:relative">
+      <input type="text" id="m-related-search" placeholder="이름 또는 전화번호 검색" autocomplete="off">
+      <div id="m-related-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;z-index:100;max-height:180px;overflow-y:auto"></div>
+    </div>
+    <div id="m-related-selected" style="display:none;font-size:12px;color:#6b7280;margin-top:4px;padding:4px 8px;background:#f8fafc;border-radius:6px;cursor:pointer"></div>
+  </div>
+  <div class="field">
     <label>메모</label>
     <input type="text" id="m-memo" placeholder="특이사항">
   </div>
@@ -310,6 +318,7 @@ function renderList() {
     div.innerHTML = `
       <div class="customer-name">${c.name}</div>
       <div class="customer-phone">${formatPhone(c.phone)}</div>
+      ${c.related_name ? `<div style="font-size:12px;color:#6b7280">👤 ${c.related_name}</div>` : ''}
       ${c.memo ? `<div class="customer-memo">${c.memo}</div>` : ''}
       ${c.matched_address ? `<div class="customer-addr-match">📍 ${c.matched_address}</div>` : ''}
       ${c.synced_at ? `<div style="font-size:10px;color:#9ca3af;margin-top:2px">🔄 ${c.synced_at.slice(0,16)}</div>` : '<div style="font-size:10px;color:#fca5a5;margin-top:2px">미동기화</div>'}`;
@@ -341,6 +350,7 @@ async function openModal(customer) {
   document.getElementById('m-name').value = customer.name;
   document.getElementById('m-phone').value = customer.phone;
   document.getElementById('m-memo').value = customer.memo || '';
+  setRelatedCustomer(customer.related_customer_id || null, customer.related_name || '');
   document.getElementById('addr-section').style.display = '';
   document.getElementById('modal-order').style.display = '';
   document.getElementById('modal-delete').style.display = '';
@@ -357,12 +367,62 @@ function openNewModal() {
   document.getElementById('m-name').value = '';
   document.getElementById('m-phone').value = '';
   document.getElementById('m-memo').value = '';
+  setRelatedCustomer(null, '');
   document.getElementById('addr-section').style.display = 'none';
   document.getElementById('modal-order').style.display = 'none';
   document.getElementById('modal-delete').style.display = 'none';
   document.getElementById('addr-list').innerHTML = '';
   showModal();
 }
+
+// ── 관계자 검색 ───────────────────────────────────────
+function setRelatedCustomer(id, name) {
+  window._modalRelatedId = id || null;
+  const sel = document.getElementById('m-related-selected');
+  const inp = document.getElementById('m-related-search');
+  if (id && name) {
+    sel.textContent = `👤 ${name}`;
+    sel.style.display = '';
+    inp.value = '';
+  } else {
+    sel.style.display = 'none';
+    inp.value = '';
+  }
+}
+
+(function() {
+  let relTimer = null;
+  document.getElementById('m-related-search').addEventListener('input', async function() {
+    clearTimeout(relTimer);
+    const q = this.value.trim();
+    const drop = document.getElementById('m-related-dropdown');
+    if (!q) { drop.style.display = 'none'; return; }
+    relTimer = setTimeout(async () => {
+      const res = await fetch(`${API}/api/customers?q=${encodeURIComponent(q)}`);
+      const list = await res.json();
+      drop.innerHTML = '';
+      list.slice(0, 8).forEach(c => {
+        const d = document.createElement('div');
+        d.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f3f4f6';
+        d.innerHTML = `<span style="font-weight:600">${c.name}</span> <span style="color:#9ca3af">${c.phone}</span>`;
+        d.addEventListener('mousedown', e => {
+          e.preventDefault();
+          setRelatedCustomer(c.id, c.name);
+          drop.style.display = 'none';
+        });
+        drop.appendChild(d);
+      });
+      drop.style.display = list.length ? '' : 'none';
+    }, 300);
+  });
+  document.getElementById('m-related-search').addEventListener('blur', () => {
+    setTimeout(() => { document.getElementById('m-related-dropdown').style.display = 'none'; }, 150);
+  });
+  document.getElementById('m-related-selected').addEventListener('click', () => {
+    setRelatedCustomer(null, '');
+    document.getElementById('m-related-search').focus();
+  });
+})();
 
 function showModal() {
   document.getElementById('modal-bg').classList.add('show');
@@ -457,9 +517,10 @@ document.getElementById('btn-add-addr').addEventListener('click', async () => {
 
 // ── 저장 ──────────────────────────────────────────────
 document.getElementById('modal-save').addEventListener('click', async () => {
-  const name  = document.getElementById('m-name').value.trim();
-  const phone = document.getElementById('m-phone').value.trim().replace(/[^0-9]/g, '');
-  const memo  = document.getElementById('m-memo').value.trim();
+  const name               = document.getElementById('m-name').value.trim();
+  const phone              = document.getElementById('m-phone').value.trim().replace(/[^0-9]/g, '');
+  const memo               = document.getElementById('m-memo').value.trim();
+  const related_customer_id = window._modalRelatedId || null;
   if (!name || !phone) { showToast('이름과 전화번호를 입력하세요'); return; }
 
   if (isNew) {
@@ -470,7 +531,7 @@ document.getElementById('modal-save').addEventListener('click', async () => {
     const res = await fetch(`${API}/api/customers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, memo, google_resource_name })
+      body: JSON.stringify({ name, phone, memo, related_customer_id, google_resource_name })
     });
     const data = await res.json();
     if (data.id) {
@@ -487,7 +548,7 @@ document.getElementById('modal-save').addEventListener('click', async () => {
     await fetch(`${API}/api/customers/${currentCustomer.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, memo })
+      body: JSON.stringify({ name, phone, memo, related_customer_id })
     });
     showToast(accessToken ? '✅ 저장 + Google 업데이트 완료' : '✅ D1 저장 완료');
     hideModal();

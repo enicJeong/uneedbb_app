@@ -37,6 +37,7 @@ function renderSelectedCustomer(divId, customer, onClear) {
         <div class="name">${customer.name}</div>
         <div class="phone">${customer.phone}</div>
         ${customer.memo ? `<div style="font-size:11px;color:#f59e0b;font-weight:600;margin-top:2px">📝 ${customer.memo}</div>` : ''}
+        ${customer.related_name ? `<div style="font-size:11px;color:#6b7280;margin-top:2px">👤 ${customer.related_name}</div>` : ''}
       </div>
       <button class="btn-clear-x" id="${divId}-clear">✕</button>
     </div>`;
@@ -61,6 +62,12 @@ function showInlineForm(defaultVal, formWrapperId, onSaved) {
     <input type="text" id="if-name" value="${defaultName}" placeholder="홍길동">
     <label>전화번호</label>
     <input type="text" id="if-phone" value="${defaultPhone}" placeholder="01012345678">
+    <label>관계자</label>
+    <div style="display:flex;gap:6px;position:relative">
+      <input type="text" id="if-related-search" placeholder="이름 또는 전화번호 검색" autocomplete="off" style="flex:1">
+      <div id="if-related-dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid #e5e7eb;border-radius:8px;z-index:100;max-height:180px;overflow-y:auto"></div>
+    </div>
+    <div id="if-related-selected" style="display:none;font-size:12px;color:#6b7280;margin-top:4px;padding:4px 8px;background:#f8fafc;border-radius:6px"></div>
     <label>특이사항</label>
     <input type="text" id="if-memo" placeholder="선택사항">
     <div class="btn-row">
@@ -73,10 +80,45 @@ function showInlineForm(defaultVal, formWrapperId, onSaved) {
   document.getElementById(defaultName ? 'if-phone' : 'if-name').focus();
 
   document.getElementById('if-cancel').addEventListener('click', () => { wrap.innerHTML = ''; });
+
+  // 관계자 검색
+  const relInput = document.getElementById('if-related-search');
+  const relDrop  = document.getElementById('if-related-dropdown');
+  const relSel   = document.getElementById('if-related-selected');
+  let relTimer = null;
+  relInput.addEventListener('input', () => {
+    clearTimeout(relTimer);
+    const q = relInput.value.trim();
+    if (!q) { relDrop.style.display = 'none'; return; }
+    relTimer = setTimeout(async () => {
+      const res = await fetch(`${BB_CONFIG.API}/api/customers?q=${encodeURIComponent(q)}`);
+      const list = await res.json();
+      relDrop.innerHTML = '';
+      list.slice(0, 8).forEach(c => {
+        const d = document.createElement('div');
+        d.style.cssText = 'padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f3f4f6';
+        d.innerHTML = `<span style="font-weight:600">${c.name}</span> <span style="color:#9ca3af">${c.phone}</span>`;
+        d.addEventListener('mousedown', e => {
+          e.preventDefault();
+          form._relatedCustomerId = c.id;
+          form._relatedName = c.name;
+          relInput.value = '';
+          relDrop.style.display = 'none';
+          relSel.textContent = `👤 ${c.name} (${c.phone})`;
+          relSel.style.display = '';
+        });
+        relDrop.appendChild(d);
+      });
+      relDrop.style.display = list.length ? '' : 'none';
+    }, 300);
+  });
+  relInput.addEventListener('blur', () => setTimeout(() => { relDrop.style.display = 'none'; }, 150));
   document.getElementById('if-save').addEventListener('click', async () => {
-    const name = document.getElementById('if-name').value.trim();
-    const phone = document.getElementById('if-phone').value.trim().replace(/[^0-9]/g, '');
-    const memo = document.getElementById('if-memo').value.trim();
+    const name               = document.getElementById('if-name').value.trim();
+    const phone              = document.getElementById('if-phone').value.trim().replace(/[^0-9]/g, '');
+    const memo               = document.getElementById('if-memo').value.trim();
+    const related_customer_id = form._relatedCustomerId || null;
+    const related_name        = form._relatedName || '';
     if (!name || !phone) { showToast('이름과 전화번호를 입력하세요'); return; }
     const btn = document.getElementById('if-save');
     btn.disabled = true;
@@ -84,12 +126,12 @@ function showInlineForm(defaultVal, formWrapperId, onSaved) {
     const res = await fetch(`${BB_CONFIG.API}/api/customers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, phone, memo })
+      body: JSON.stringify({ name, phone, memo, related_customer_id })
     });
     const data = await res.json();
     if (data.id) {
       wrap.innerHTML = '';
-      onSaved({ id: data.id, name, phone, memo });
+      onSaved({ id: data.id, name, phone, memo, related_customer_id, related_name });
       showToast('✅ 신규 고객 등록 완료');
     } else {
       showToast('오류: ' + (data.error || '알 수 없음'));
@@ -128,7 +170,7 @@ function setupSearch(inputId, searchBtnId, dropdownId, inlineFormId, onSelect) {
       data.forEach(c => {
         const div = document.createElement('div');
         div.className = 'dropdown-item';
-        div.innerHTML = `<div class="name">${c.name}</div><div class="phone">${c.phone}</div>`;
+        div.innerHTML = `<div class="name">${c.name}</div><div class="phone">${c.phone}</div>${c.related_name ? `<div style="font-size:11px;color:#6b7280">👤 ${c.related_name}</div>` : ''}`;
         div.addEventListener('click', () => {
           onSelect(c);
           dropdown.style.display = 'none';

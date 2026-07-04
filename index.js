@@ -126,26 +126,29 @@ export default {
         if (q) {
           if (qn) {
             rows = await env.DB.prepare(
-              `SELECT DISTINCT c.id, c.name, c.phone, c.memo, c.synced_at,
+              `SELECT DISTINCT c.id, c.name, c.phone, c.memo, c.related_customer_id, rc.name AS related_name, c.synced_at,
                  (SELECT a2.address FROM addresses a2 WHERE a2.customer_id = c.id AND a2.address LIKE ? LIMIT 1) AS matched_address
                FROM customers c
                LEFT JOIN addresses a ON a.customer_id = c.id
+               LEFT JOIN customers rc ON rc.id = c.related_customer_id
                WHERE (c.name LIKE ? OR c.phone LIKE ? OR a.address LIKE ?) ${syncedCond} ORDER BY c.name LIMIT 100`
             ).bind(`%${q}%`, `%${q}%`, `%${qn}%`, `%${q}%`).all();
           } else {
             rows = await env.DB.prepare(
-              `SELECT DISTINCT c.id, c.name, c.phone, c.memo, c.synced_at,
+              `SELECT DISTINCT c.id, c.name, c.phone, c.memo, c.related_customer_id, rc.name AS related_name, c.synced_at,
                  (SELECT a2.address FROM addresses a2 WHERE a2.customer_id = c.id AND a2.address LIKE ? LIMIT 1) AS matched_address
                FROM customers c
                LEFT JOIN addresses a ON a.customer_id = c.id
+               LEFT JOIN customers rc ON rc.id = c.related_customer_id
                WHERE (c.name LIKE ? OR a.address LIKE ?) ${syncedCond} ORDER BY c.name LIMIT 100`
             ).bind(`%${q}%`, `%${q}%`, `%${q}%`).all();
           }
         } else {
           const offset = parseInt(url.searchParams.get('offset') || '0');
           rows = await env.DB.prepare(
-            `SELECT id, name, phone, memo, synced_at, google_resource_name FROM customers
-             WHERE 1=1 ${syncedCond} ORDER BY id LIMIT 500 OFFSET ?`
+            `SELECT c.id, c.name, c.phone, c.memo, c.related_customer_id, rc.name AS related_name, c.synced_at, c.google_resource_name
+             FROM customers c LEFT JOIN customers rc ON rc.id = c.related_customer_id
+             WHERE 1=1 ${syncedCond} ORDER BY c.id LIMIT 500 OFFSET ?`
           ).bind(offset).all();
         }
         return json(rows.results);
@@ -172,13 +175,13 @@ export default {
           }
           return json({ inserted, skipped, failed });
         }
-        const { name, memo, google_resource_name } = body;
+        const { name, memo, google_resource_name, related_customer_id } = body;
         const phone = normalizePhone(body.phone);
         if (!name || !phone) return err('name, phone 필수');
         await env.DB.prepare(
-          `INSERT INTO customers (name, phone, memo, google_resource_name) VALUES (?, ?, ?, ?)
-           ON CONFLICT(phone) DO UPDATE SET name=excluded.name, memo=COALESCE(NULLIF(excluded.memo,''), memo)`
-        ).bind(name, phone, memo || '', google_resource_name || '').run();
+          `INSERT INTO customers (name, phone, memo, google_resource_name, related_customer_id) VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(phone) DO UPDATE SET name=excluded.name, memo=COALESCE(NULLIF(excluded.memo,''), memo), related_customer_id=COALESCE(excluded.related_customer_id, related_customer_id)`
+        ).bind(name, phone, memo || '', google_resource_name || '', related_customer_id || null).run();
         const row = await env.DB.prepare(`SELECT id FROM customers WHERE phone=?`).bind(phone).first();
         return json({ id: row.id }, 201);
       }
@@ -217,7 +220,7 @@ export default {
       if (path.match(/^\/api\/customers\/\d+$/) && method === 'GET') {
         const id = path.split('/')[3];
         const customer = await env.DB.prepare(
-          `SELECT * FROM customers WHERE id = ?`
+          `SELECT c.*, rc.name AS related_name FROM customers c LEFT JOIN customers rc ON rc.id = c.related_customer_id WHERE c.id = ?`
         ).bind(id).first();
         if (!customer) return err('고객 없음', 404);
         const addresses = await env.DB.prepare(
@@ -242,10 +245,10 @@ export default {
           return json({ ok: true });
         }
         const phone = normalizePhone(body.phone);
-        const { name, memo } = body;
+        const { name, memo, related_customer_id } = body;
         await env.DB.prepare(
-          `UPDATE customers SET name=?, phone=?, memo=? WHERE id=?`
-        ).bind(name, phone, memo || '', id).run();
+          `UPDATE customers SET name=?, phone=?, memo=?, related_customer_id=? WHERE id=?`
+        ).bind(name, phone, memo || '', related_customer_id || null, id).run();
         return json({ ok: true });
       }
 
