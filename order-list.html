@@ -183,6 +183,7 @@
   <div id="empty-msg" style="display:none" class="empty">해당하는 주문이 없습니다</div>
   <div id="order-footer">
     현재 주문 <span id="footer-count">0</span>건 &nbsp;·&nbsp; 수량 합계 <span id="footer-qty">0</span>kg
+    &nbsp;·&nbsp; 블루베리 <span id="footer-item-amt">0</span>원 &nbsp;·&nbsp; 택배비 <span id="footer-ship-amt">0</span>원
   </div>
 </div>
 
@@ -320,9 +321,13 @@ function renderOrders() {
   document.getElementById('search-count').textContent =
     searchQuery ? `${filtered.length}건` : '';
 
-  const totalQty = filtered.reduce((s, o) => s + (o.total_qty || 0), 0);
-  document.getElementById('footer-count').textContent = filtered.length;
-  document.getElementById('footer-qty').textContent = totalQty;
+  const totalQty     = filtered.reduce((s, o) => s + (o.total_qty || 0), 0);
+  const totalItem    = filtered.reduce((s, o) => s + ((o.total_amount || 0) - (o.shipping_fee || 0)), 0);
+  const totalShip    = filtered.reduce((s, o) => s + (o.shipping_fee || 0), 0);
+  document.getElementById('footer-count').textContent    = filtered.length;
+  document.getElementById('footer-qty').textContent      = totalQty;
+  document.getElementById('footer-item-amt').textContent = totalItem.toLocaleString();
+  document.getElementById('footer-ship-amt').textContent = totalShip.toLocaleString();
 
   if (!filtered.length) {
     document.getElementById('mobile-list').innerHTML = '';
