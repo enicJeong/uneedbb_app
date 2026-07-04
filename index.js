@@ -352,12 +352,13 @@ export default {
         const name = url.searchParams.get('name') || '';
         if (name) {
           const rows = await env.DB.prepare(`
-            SELECT o.id, o.order_no, o.total_amount, o.status,
+            SELECT o.id, o.order_no, o.total_amount, o.status, o.payment_status,
               c.name AS orderer_name, r.name AS recipient_name
             FROM orders o
             LEFT JOIN customers c ON o.orderer_id  = c.id
             LEFT JOIN customers r ON o.recipient_id = r.id
-            WHERE o.status != '삭제'
+            WHERE o.status != '삭제' AND o.status != '수금완료'
+              AND (o.payment_status IS NULL OR o.payment_status != '수금완료')
               AND (c.name LIKE ? OR r.name LIKE ?)
             ORDER BY o.order_no DESC LIMIT 30
           `).bind(`%${name}%`, `%${name}%`).all();

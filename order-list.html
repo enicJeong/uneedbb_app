@@ -125,6 +125,13 @@
     <button class="filter-btn" data-filter="송장출력">송장출력</button>
     <button class="filter-btn" data-filter="배송완료">배송완료</button>
     <button class="filter-btn" data-filter="수금완료">수금완료</button>
+    <button class="filter-btn" data-filter="미수금">💰 미수금</button>
+  </div>
+  <div class="filter-row" style="margin-top:4px">
+    <button class="delivery-btn active" data-delivery="">전체</button>
+    <button class="delivery-btn" data-delivery="택배">택배</button>
+    <button class="delivery-btn" data-delivery="현장">현장</button>
+    <button class="delivery-btn" data-delivery="배달">배달</button>
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
     <span style="font-size:12px;color:#6b7280;font-weight:600">발송일</span>
@@ -223,6 +230,7 @@
 const API = BB_CONFIG.API;
 let allOrders = [];
 let currentFilter = '';
+let deliveryFilter = '';
 let rowMode = 'select'; // 'select' | 'detail'
 let searchQuery = '';
 let shippedDateFilter = ''; // 'YYYY-MM-DD'
@@ -290,7 +298,12 @@ function updateSummary() {
 function getFiltered() {
   let list = currentFilter === '수금완료'
     ? allOrders.filter(o => o.payment_status === '수금완료' || o.status === '수금완료')
+    : currentFilter === '미수금'
+    ? allOrders.filter(o => o.payment_status !== '수금완료' && o.status !== '수금완료' && o.status !== '삭제')
     : currentFilter ? allOrders.filter(o => o.status === currentFilter && o.payment_status !== '수금완료') : allOrders;
+  if (deliveryFilter) {
+    list = list.filter(o => o.delivery_type === deliveryFilter);
+  }
   if (shippedDateFilter) {
     list = list.filter(o => (o.shipped_at || '').slice(0,10) === shippedDateFilter);
   }
@@ -456,6 +469,15 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentFilter = btn.dataset.filter;
+    renderOrders();
+  });
+});
+
+document.querySelectorAll('.delivery-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.delivery-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    deliveryFilter = btn.dataset.delivery;
     renderOrders();
   });
 });
