@@ -100,7 +100,7 @@
   <div class="top">
     <h1 style="font-size:20px;font-weight:700">📋 주문 목록</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-outline" id="btn-nemonic">네모닉출력</button>
+      <button class="btn btn-outline" id="btn-nemonic">네모닉출력 <span id="nemonic-status" style="font-size:10px;margin-left:4px">⬤</span></button>
       <button class="btn btn-outline" id="btn-dl-excel">📥 엑셀 다운</button>
       <button class="btn btn-outline" id="btn-excel">📦 택배사엑셀</button>
       <a href="https://logis.ilogen.com/" target="_blank"><button class="btn btn-outline">🚚 로젠택배</button></a>
@@ -509,6 +509,26 @@ document.getElementById('btn-dl-excel').addEventListener('click', () => {
 });
 
 let _printPollTimer = null;
+
+async function checkNemonicHealth() {
+  const dot = document.getElementById('nemonic-status');
+  try {
+    const res = await fetch('https://nemonic.uneedbb.kr/health', { signal: AbortSignal.timeout(3000) });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      dot.textContent = '⬤';
+      dot.style.color = data.busy ? '#f59e0b' : '#22c55e';
+      dot.title = data.busy ? `출력 중 — ${data.printer}` : `연결됨 — ${data.printer}`;
+    } else {
+      dot.textContent = '⬤'; dot.style.color = '#ef4444'; dot.title = '오류';
+    }
+  } catch {
+    dot.textContent = '⬤'; dot.style.color = '#d1d5db'; dot.title = '연결 안됨';
+  }
+}
+
+checkNemonicHealth();
+setInterval(checkNemonicHealth, 15000);
 
 function showPrintModal() {
   const modal = document.getElementById('print-progress-modal');
