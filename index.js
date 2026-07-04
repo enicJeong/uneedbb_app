@@ -612,6 +612,16 @@ export default {
       }
 
       // ── 주문서 출력 처리 (외부 출력기용) ──────────────
+      // PUT /api/orders/:id/payment-status
+      if (path.match(/^\/api\/orders\/\d+\/payment-status$/) && method === 'PUT') {
+        const id = path.split('/')[3];
+        const { payment_status } = await request.json();
+        await env.DB.prepare(
+          `UPDATE orders SET payment_status=?, updated_at=datetime('now','localtime') WHERE id=?`
+        ).bind(payment_status, id).run();
+        return json({ ok: true });
+      }
+
       // PUT /api/orders/:id/printed
       // printed: 1 → printed_at = now, 상태 → 주문출력
       // printed: 0 → printed_at = NULL
