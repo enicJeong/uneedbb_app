@@ -183,6 +183,9 @@
       <button class="btn btn-outline" id="btn-edit">✏️ 수정</button>
       <button class="btn btn-outline" id="btn-copy">📋 복사</button>
     </div>
+    <div style="margin-top:8px">
+      <button class="btn btn-success" id="btn-paid" style="display:none;width:100%">💰 입금완료 처리</button>
+    </div>
   </div>
 </div>
 
@@ -252,6 +255,7 @@ function render() {
   // 수금 배지
   const isPaid = order.payment_status === '수금완료' || order.status === '수금완료';
   document.getElementById('payment-status-wrap').style.display = isPaid ? '' : 'none';
+  document.getElementById('btn-paid').style.display = isPaid ? 'none' : '';
 
   // 상태 흐름
   const flow = document.getElementById('status-flow');
@@ -517,6 +521,18 @@ document.getElementById('btn-edit').addEventListener('click', () => {
 
 document.getElementById('btn-copy').addEventListener('click', () => {
   window.location.href = `order-new.html?copy_from=${orderId}`;
+});
+
+document.getElementById('btn-paid').addEventListener('click', async () => {
+  if (!confirm('입금완료 처리하시겠습니까?')) return;
+  await fetch(`${API}/api/orders/${orderId}/payment-status`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payment_status: '수금완료' })
+  });
+  showToast('💰 입금완료 처리됨');
+  document.getElementById('btn-paid').style.display = 'none';
+  document.getElementById('payment-status-wrap').style.display = '';
 });
 
 // ── SMS 토글 ──────────────────────────────────────────
