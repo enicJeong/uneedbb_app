@@ -681,37 +681,38 @@ async function loadAutoMatch(t, subTr) {
   el.innerHTML = `<div style="font-weight:700;color:#1d4ed8;margin-bottom:4px">🔍 "${name}" 미수 주문 ${unlinked.length}건</div>` +
     unlinked.map(o => `
       <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #dbeafe">
-        <a href="order-detail.html?id=${o.id}" target="_blank" style="font-weight:700;color:#1d4ed8;min-width:90px;text-decoration:none">${o.order_no||'#'+o.id}</a>
-        <span style="flex:1;color:#374151">${o.orderer_name||''}${o.recipient_name&&o.recipient_name!==o.orderer_name?' › '+o.recipient_name:''}</span>
+        <input type="checkbox" class="auto-link-chk" data-order-id="${o.id}" data-order-no="${o.order_no||'#'+o.id}" data-amount="${o.total_amount||0}" style="width:16px;height:16px;flex-shrink:0;cursor:pointer">
+        <a href="order-detail.html?id=${o.id}" target="_blank" style="font-weight:700;color:#1d4ed8;min-width:90px;text-decoration:none" onclick="event.stopPropagation()">${o.order_no||'#'+o.id}</a>
+        <span style="flex:1;color:#374151;font-size:12px">${o.orderer_name||''}${o.recipient_name&&o.recipient_name!==o.orderer_name?' › '+o.recipient_name:''}</span>
         <span style="color:#15803d;font-weight:700;white-space:nowrap">${(o.total_amount||0).toLocaleString()}원</span>
-        <button class="btn-auto-link" data-order-id="${o.id}" data-order-no="${o.order_no||'#'+o.id}" data-amount="${o.total_amount||0}"
-          style="padding:3px 10px;border:1px solid #2563eb;border-radius:6px;background:#eff6ff;color:#2563eb;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">연결</button>
-      </div>`).join('');
+      </div>`).join('') +
+    `<button class="btn-auto-link-confirm" style="margin-top:8px;padding:5px 16px;border:1px solid #2563eb;border-radius:6px;background:#2563eb;color:#fff;font-size:12px;font-weight:700;cursor:pointer">선택 연결</button>`;
 
-  el.querySelectorAll('.btn-auto-link').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const orderId = +btn.dataset.orderId;
-      const amount  = +btn.dataset.amount;
-      await fetch(`${API}/api/transactions/${t.id}/links`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ links: [{ order_id: orderId, amount }] })
-      });
-      await fetch(`${API}/api/orders/${orderId}/payment-status`, {
+  el.querySelector('.btn-auto-link-confirm').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const checked = [...el.querySelectorAll('.auto-link-chk:checked')];
+    if (!checked.length) { showToast('연결할 주문을 선택하세요'); return; }
+    const links = checked.map(chk => ({ order_id: +chk.dataset.orderId, amount: +chk.dataset.amount }));
+    await fetch(`${API}/api/transactions/${t.id}/links`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ links })
+    });
+    for (const chk of checked) {
+      await fetch(`${API}/api/orders/${chk.dataset.orderId}/payment-status`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payment_status: '수금완료' })
       });
-      const txn = await (await fetch(`${API}/api/transactions/${t.id}`)).json();
-      if ((txn.deposit - (txn.linked_amount||0)) <= 0) {
-        await fetch(`${API}/api/transactions/${t.id}/status`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ txn_status: '완료' })
-        });
-      }
-      showToast(`✅ ${btn.dataset.orderNo} 연결됨`);
-      await load();
-      document.getElementById(`sub-tr-${t.id}`)?.classList.add('open');
-    });
+    }
+    const txn = await (await fetch(`${API}/api/transactions/${t.id}`)).json();
+    if ((txn.deposit - (txn.linked_amount||0)) <= 0) {
+      await fetch(`${API}/api/transactions/${t.id}/status`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txn_status: '완료' })
+      });
+    }
+    showToast(`✅ ${checked.length}건 연결됨`);
+    await load();
+    document.getElementById(`sub-tr-${t.id}`)?.classList.add('open');
   });
 }
 

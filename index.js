@@ -841,25 +841,18 @@ export default {
           `).all();
         }
         const txns = rows.results;
-        const ids = txns.map(t => t.id);
-        if (ids.length) {
-          const links = await env.DB.prepare(`
-            SELECT l.*, o.order_no,
-              c.name AS orderer_name
-            FROM txn_links l
-            JOIN orders o ON l.order_id = o.id
-            LEFT JOIN customers c ON o.orderer_id = c.id
-            WHERE l.transaction_id IN (${ids.map(() => '?').join(',')})
-          `).bind(...ids).all();
-          const linkMap = {};
-          for (const l of links.results) {
-            if (!linkMap[l.transaction_id]) linkMap[l.transaction_id] = [];
-            linkMap[l.transaction_id].push(l);
-          }
-          for (const t of txns) t.links = linkMap[t.id] || [];
-        } else {
-          for (const t of txns) t.links = [];
+        const links = await env.DB.prepare(`
+          SELECT l.*, o.order_no, c.name AS orderer_name
+          FROM txn_links l
+          JOIN orders o ON l.order_id = o.id
+          LEFT JOIN customers c ON o.orderer_id = c.id
+        `).all();
+        const linkMap = {};
+        for (const l of links.results) {
+          if (!linkMap[l.transaction_id]) linkMap[l.transaction_id] = [];
+          linkMap[l.transaction_id].push(l);
         }
+        for (const t of txns) t.links = linkMap[t.id] || [];
         return json(txns);
       }
 

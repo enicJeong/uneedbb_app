@@ -100,6 +100,7 @@
   <div class="top">
     <h1 style="font-size:20px;font-weight:700">📋 주문 목록</h1>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-outline" id="btn-memo-print">📝 메모출력</button>
       <button class="btn btn-outline" id="btn-nemonic">네모닉출력 <span id="nemonic-status" style="font-size:10px;margin-left:4px">⬤</span></button>
       <button class="btn btn-outline" id="btn-dl-excel">📥 엑셀 다운</button>
       <button class="btn btn-outline" id="btn-excel">📦 택배사엑셀</button>
@@ -173,6 +174,18 @@
       </thead>
       <tbody id="desktop-tbody"></tbody>
     </table>
+  </div>
+
+  <!-- 메모 출력 모달 -->
+  <div id="memo-print-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:400;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:14px;padding:24px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+      <div style="font-size:15px;font-weight:700;margin-bottom:14px">📝 메모 출력</div>
+      <textarea id="memo-print-text" rows="6" style="width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:10px;font-size:14px;resize:vertical;font-family:inherit" placeholder="출력할 내용을 입력하세요..."></textarea>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn btn-primary" id="btn-memo-print-confirm" style="flex:1">🖨 네모닉출력</button>
+        <button class="btn btn-outline" id="btn-memo-print-cancel" style="flex:1">취소</button>
+      </div>
+    </div>
   </div>
 
   <!-- 출력 진행 모달 -->
@@ -602,6 +615,33 @@ async function pollPrintJob() {
 document.getElementById('print-progress-close').addEventListener('click', () => {
   document.getElementById('print-progress-modal').style.display = 'none';
   stopPrintPoll();
+});
+
+document.getElementById('btn-memo-print').addEventListener('click', () => {
+  document.getElementById('memo-print-text').value = '';
+  document.getElementById('memo-print-modal').style.display = 'flex';
+  document.getElementById('memo-print-text').focus();
+});
+
+document.getElementById('btn-memo-print-cancel').addEventListener('click', () => {
+  document.getElementById('memo-print-modal').style.display = 'none';
+});
+
+document.getElementById('btn-memo-print-confirm').addEventListener('click', async () => {
+  const text = document.getElementById('memo-print-text').value.trim();
+  if (!text) { showToast('내용을 입력하세요'); return; }
+  document.getElementById('memo-print-modal').style.display = 'none';
+  try {
+    const res = await fetch(`https://nemonic.uneedbb.kr/print-memo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const data = await res.json();
+    showToast(data.status === 'ok' ? '✅ 메모 출력 완료' : `❌ ${data.message || '출력 실패'}`);
+  } catch (e) {
+    showToast('❌ 네모닉 서버 연결 실패');
+  }
 });
 
 document.getElementById('btn-nemonic').addEventListener('click', async () => {
