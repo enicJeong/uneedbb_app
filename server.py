@@ -56,6 +56,11 @@ SMALL_LINES_SAME = [
 ]
 # ────────────────────────────────────────────────────────────
 
+# ── 메모 출력 설정 ───────────────────────────────────────────
+MEMO_FONT_SIZE_PT = 15   # 메모 출력 폰트 크기 (pt)
+MEMO_LINE_SPACING = 1.4  # 줄 간격 배율
+# ────────────────────────────────────────────────────────────
+
 _running = False
 _lock = threading.Lock()
 
@@ -242,14 +247,14 @@ def print_memo():
         dpi_y = hdc.GetDeviceCaps(win32con.LOGPIXELSY)
         font = win32ui.CreateFont({
             "name": "배달의민족 도현",
-            "height": -int(font_size_small_pt * dpi_y / 72),
+            "height": -int(15 * dpi_y / 72),
             "weight": win32con.FW_BOLD,
             "charset": 129
         })
         page_width = hdc.GetDeviceCaps(win32con.HORZRES)
         margin = 10
         max_width = page_width - margin * 2
-        lh = int(font_size_small_pt * dpi_y / 72 * 1.4)
+        lh = int(15 * dpi_y / 72 * 1.4)
         hdc.StartDoc("Memo")
         hdc.StartPage()
         old = hdc.SelectObject(font)

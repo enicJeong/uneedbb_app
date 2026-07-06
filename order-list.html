@@ -302,7 +302,7 @@ function itemBadges(summary) {
 
 function updateSummary() {
   ['주문입력','주문확정','주문출력','송장출력','배송완료'].forEach(s => {
-    document.getElementById('cnt-' + s).textContent = allOrders.filter(o => o.status === s).length;
+    document.getElementById('cnt-' + s).textContent = allOrders.filter(o => o.status === s && o.payment_status !== '수금완료').length;
   });
   document.getElementById('cnt-수금완료').textContent =
     allOrders.filter(o => o.payment_status === '수금완료' || o.status === '수금완료').length;
