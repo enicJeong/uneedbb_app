@@ -665,7 +665,7 @@ document.getElementById('btn-nemonic').addEventListener('click', async () => {
 
 // ── 택배사 엑셀 (송장출력 상태) ──────────────────────
 document.getElementById('btn-excel').addEventListener('click', async () => {
-  const res = await fetch(`${API}/api/orders/export?status=송장출력`);
+  const res = await fetch(`${API}/api/orders/export?status=송장출력&unprinted=0`);
   const orders = await res.json();
   if (!orders.length) { showToast('송장출력 상태 주문이 없습니다'); return; }
 

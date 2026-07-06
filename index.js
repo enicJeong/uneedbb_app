@@ -315,7 +315,9 @@ export default {
           const row = await env.DB.prepare(`${exportSql} WHERE o.id = ? AND o.status != '삭제'`).bind(orderId).first();
           return json(row ? [row] : []);
         }
-        const rows = await env.DB.prepare(`${exportSql} WHERE o.status = ? AND o.status != '삭제' AND o.printed_at IS NULL ORDER BY o.order_no ASC`).bind(status).all();
+        const unprinted = url.searchParams.get('unprinted') !== '0';
+        const printedCond = unprinted ? `AND o.printed_at IS NULL` : '';
+        const rows = await env.DB.prepare(`${exportSql} WHERE o.status = ? AND o.status != '삭제' ${printedCond} ORDER BY o.order_no ASC`).bind(status).all();
         return json(rows.results);
       }
 
