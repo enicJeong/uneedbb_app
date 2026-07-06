@@ -222,7 +222,7 @@ function formatTrackingNo(val) {
 }
 
 async function loadTrackingOrders() {
-  const res = await fetch(`${API}/api/orders/export?status=송장출력`);
+  const res = await fetch(`${API}/api/orders/export?status=송장출력&unprinted=0`);
   tOrders = await res.json();
   document.getElementById('t-count').textContent = `(${tOrders.length}건)`;
   renderTrackingTable();
