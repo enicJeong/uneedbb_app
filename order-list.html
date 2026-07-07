@@ -302,18 +302,25 @@ function itemBadges(summary) {
 
 function updateSummary() {
   ['주문입력','주문확정','주문출력','송장출력','배송완료'].forEach(s => {
-    document.getElementById('cnt-' + s).textContent = allOrders.filter(o => o.status === s && o.payment_status !== '수금완료').length;
+    document.getElementById('cnt-' + s).textContent = allOrders.filter(o => o.status === s && !isPaid(o)).length;
   });
-  document.getElementById('cnt-수금완료').textContent =
-    allOrders.filter(o => o.payment_status === '수금완료' || o.status === '수금완료').length;
+  document.getElementById('cnt-수금완료').textContent = allOrders.filter(o => isPaid(o)).length;
 }
 
+function isPaid(o) { return o.payment_status === '수금완료' || o.status === '수금완료'; }
+
 function getFiltered() {
-  let list = currentFilter === '수금완료'
-    ? allOrders.filter(o => o.payment_status === '수금완료' || o.status === '수금완료')
-    : currentFilter === '미수금'
-    ? allOrders.filter(o => o.payment_status !== '수금완료' && o.status !== '수금완료' && o.status !== '삭제')
-    : currentFilter ? allOrders.filter(o => o.status === currentFilter && o.payment_status !== '수금완료') : allOrders;
+  const base = allOrders.filter(o => o.status !== '삭제');
+  let list;
+  if (currentFilter === '수금완료') {
+    list = base.filter(o => isPaid(o));
+  } else if (currentFilter === '미수금') {
+    list = base.filter(o => !isPaid(o));
+  } else if (currentFilter) {
+    list = base.filter(o => o.status === currentFilter && !isPaid(o));
+  } else {
+    list = base;
+  }
   if (deliveryFilter) {
     list = list.filter(o => o.delivery_type === deliveryFilter);
   }
