@@ -302,7 +302,7 @@ function itemBadges(summary) {
 
 function updateSummary() {
   ['주문입력','주문확정','주문출력','송장출력','배송완료'].forEach(s => {
-    document.getElementById('cnt-' + s).textContent = allOrders.filter(o => o.status === s && !isPaid(o)).length;
+    document.getElementById('cnt-' + s).textContent = allOrders.filter(o => o.status === s).length;
   });
   document.getElementById('cnt-수금완료').textContent = allOrders.filter(o => isPaid(o)).length;
 }
@@ -317,7 +317,7 @@ function getFiltered() {
   } else if (currentFilter === '미수금') {
     list = base.filter(o => !isPaid(o));
   } else if (currentFilter) {
-    list = base.filter(o => o.status === currentFilter && !isPaid(o));
+    list = base.filter(o => o.status === currentFilter);
   } else {
     list = base;
   }
