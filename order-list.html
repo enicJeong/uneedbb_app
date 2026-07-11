@@ -375,7 +375,7 @@ function renderOrders() {
   mobileList.innerHTML = '';
   filtered.forEach(o => {
     const card = document.createElement('div');
-    card.className = `order-card status-${o.status}`;
+    card.className = `order-card status-${o.status}${o.status === '마감처리' ? ' muted' : ''}`;
     const recipientText = o.recipient_name ? `<span class="recipient">→ ${o.recipient_name}</span>` : '';
     const priorityClass = o.priority <= 2 ? ' high' : '';
     card.innerHTML = `
