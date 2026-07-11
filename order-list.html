@@ -119,14 +119,20 @@
   </div>
 
   <div class="filter-row">
+    <span style="font-size:11px;color:#9ca3af;font-weight:600;align-self:center;white-space:nowrap">배송</span>
     <button class="filter-btn active" data-filter="">전체</button>
     <button class="filter-btn" data-filter="주문입력">주문입력</button>
     <button class="filter-btn" data-filter="주문확정">주문확정</button>
     <button class="filter-btn" data-filter="주문출력">주문출력</button>
     <button class="filter-btn" data-filter="송장출력">송장출력</button>
     <button class="filter-btn" data-filter="배송완료">배송완료</button>
-    <button class="filter-btn" data-filter="수금완료">수금완료</button>
-    <button class="filter-btn" data-filter="미수금">💰 미수금</button>
+    <button class="filter-btn" data-filter="마감처리">마감처리</button>
+  </div>
+  <div class="filter-row" style="margin-top:-8px">
+    <span style="font-size:11px;color:#9ca3af;font-weight:600;align-self:center;white-space:nowrap">수금</span>
+    <button class="filter-btn active" data-pay="">전체</button>
+    <button class="filter-btn" data-pay="미수금">미수금</button>
+    <button class="filter-btn" data-pay="수금완료">수금완료</button>
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
     <button class="delivery-btn active" data-delivery="">전체</button>
@@ -243,6 +249,7 @@
 const API = BB_CONFIG.API;
 let allOrders = [];
 let currentFilter = '';
+let payFilter = '';
 let deliveryFilter = '';
 let rowMode = 'select'; // 'select' | 'detail'
 let searchQuery = '';
@@ -301,26 +308,19 @@ function itemBadges(summary) {
 }
 
 function updateSummary() {
-  ['주문입력','주문확정','주문출력','송장출력','배송완료'].forEach(s => {
-    document.getElementById('cnt-' + s).textContent = allOrders.filter(o => o.status === s).length;
+  ['주문입력','주문확정','주문출력','송장출력','배송완료','마감처리'].forEach(s => {
+    const el = document.getElementById('cnt-' + s);
+    if (el) el.textContent = allOrders.filter(o => o.status === s).length;
   });
-  document.getElementById('cnt-수금완료').textContent = allOrders.filter(o => isPaid(o)).length;
 }
 
-function isPaid(o) { return o.payment_status === '수금완료' || o.status === '수금완료'; }
+function isPaid(o) { return o.payment_status === '수금완료' || o.status === '마감처리'; }
 
 function getFiltered() {
   const base = allOrders.filter(o => o.status !== '삭제');
-  let list;
-  if (currentFilter === '수금완료') {
-    list = base.filter(o => isPaid(o));
-  } else if (currentFilter === '미수금') {
-    list = base.filter(o => !isPaid(o));
-  } else if (currentFilter) {
-    list = base.filter(o => o.status === currentFilter);
-  } else {
-    list = base;
-  }
+  let list = currentFilter ? base.filter(o => o.status === currentFilter) : base;
+  if (payFilter === '수금완료') list = list.filter(o => isPaid(o));
+  else if (payFilter === '미수금') list = list.filter(o => !isPaid(o));
   if (deliveryFilter) {
     list = list.filter(o => o.delivery_type === deliveryFilter);
   }
@@ -484,11 +484,20 @@ document.getElementById('mode-detail').addEventListener('click', () => {
   document.getElementById('mode-select').style.color = '#111';
 });
 
-document.querySelectorAll('.filter-btn').forEach(btn => {
+document.querySelectorAll('.filter-btn[data-filter]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.filter-btn[data-filter]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     currentFilter = btn.dataset.filter;
+    renderOrders();
+  });
+});
+
+document.querySelectorAll('.filter-btn[data-pay]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn[data-pay]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    payFilter = btn.dataset.pay;
     renderOrders();
   });
 });

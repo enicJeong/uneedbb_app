@@ -620,6 +620,15 @@ export default {
       if (path.match(/^\/api\/orders\/\d+\/payment-status$/) && method === 'PUT') {
         const id = path.split('/')[3];
         const { payment_status } = await request.json();
+        if (payment_status === '수금완료') {
+          const row = await env.DB.prepare(`SELECT status FROM orders WHERE id=?`).bind(id).first();
+          if (row && row.status === '배송완료') {
+            await env.DB.prepare(
+              `UPDATE orders SET status='마감처리', payment_status='수금완료', updated_at=datetime('now','localtime') WHERE id=?`
+            ).bind(id).run();
+            return json({ ok: true, promoted: true });
+          }
+        }
         await env.DB.prepare(
           `UPDATE orders SET payment_status=?, updated_at=datetime('now','localtime') WHERE id=?`
         ).bind(payment_status, id).run();

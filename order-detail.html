@@ -223,7 +223,7 @@ function getProductColor(name) {
   }
   return productColorMap[name];
 }
-const STATUSES = ['주문입력', '주문확정', '주문출력', '송장출력', '배송완료'];
+const STATUSES = ['주문입력', '주문확정', '주문출력', '송장출력', '배송완료', '마감처리'];
 const params = new URLSearchParams(location.search);
 const orderId = params.get('id');
 let order = null;
@@ -240,6 +240,7 @@ const STATUS_COLOR = {
   '주문출력': '#16a34a',
   '송장출력': '#f97316',
   '배송완료': '#3b82f6',
+  '마감처리': '#065f46',
 };
 
 function render() {
