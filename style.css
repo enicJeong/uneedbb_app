@@ -211,6 +211,18 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #2563eb
 .filter-btn[data-filter="배송완료"].active { background: #1d4ed8; border-color: #1d4ed8; }
 .filter-btn[data-filter="수금완료"].active { background: #64748b; border-color: #64748b; }
 
+.delivery-btn {
+  padding: 5px 14px; border-radius: 6px; border: 1px solid #d1d5db;
+  background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; color: #374151;
+}
+.delivery-btn[data-delivery=""].active { background: #374151; color: #fff; border-color: #374151; }
+.delivery-btn[data-delivery="택배"]   { border-color: #c4b5fd; color: #6d28d9; background: #ede9fe; }
+.delivery-btn[data-delivery="택배"].active { background: #6d28d9; color: #fff; border-color: #6d28d9; }
+.delivery-btn[data-delivery="현장수령"] { border-color: #e879f9; color: #86198f; background: #fdf4ff; }
+.delivery-btn[data-delivery="현장수령"].active { background: #86198f; color: #fff; border-color: #86198f; }
+.delivery-btn[data-delivery="배달"]   { border-color: #fb923c; color: #c2410c; background: #fff7ed; }
+.delivery-btn[data-delivery="배달"].active { background: #c2410c; color: #fff; border-color: #c2410c; }
+
 /* ── 요약 카드 ─────────────────────────────────────────── */
 .summary { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
 .summary-card { background: #fff; border-radius: 9px; padding: 12px 16px; box-shadow: 0 1px 4px rgba(0,0,0,.07); flex: 1; min-width: 80px; text-align: center; }

@@ -245,7 +245,6 @@ const STATUS_COLOR = {
 function render() {
   document.getElementById('page-title').textContent = order.order_no || `주문 #${order.id}`;
 
-  // 기존 status='수금완료' 데이터는 배송완료로 표시
   const displayStatus = order.status === '수금완료' ? '배송완료' : order.status;
   const currentColor = STATUS_COLOR[displayStatus] || '#2563eb';
 
